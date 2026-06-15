@@ -1,9 +1,7 @@
 ---
-
 name: business-analysis
 description: Analyze the requirements to identify the business purpose, actors, entities, attributes, relationships, cardinalities, and business rules
 compatibility: opencode
-
 -----------------------
 
 # Business Requirements Analysis Skill
@@ -77,10 +75,22 @@ Identify all parties that interact with the system.
 For each actor:
 
 * Name
+* Actor type
 * Description
 * Responsibilities
 
-### 3. Identify Candidate Entities
+Actor Type should follow DBMS user classifications where applicable:
+
+* DBA (Database Administrator)
+* Database Designer / System Analyst
+* Application Developer
+* Parametric (Naive) End User
+* Casual End User
+* Sophisticated End User
+* Standalone User
+* External System
+
+### 3. Identify Entities
 
 Identify objects that:
 
@@ -105,9 +115,20 @@ For each entity:
 
 Identify how entities interact.
 
+Before identifying relationships, determine whether an interaction represents:
+
+* a business association between independent business objects, or
+* a step, action, decision, transition, or milestone within a business process.
+
+Only model business associations as relationships.
+
+Do not create separate relationships for actions that occur within the lifecycle of an existing business process unless those actions must be independently managed, tracked, or related to other business objects.
+
 For each relationship:
 
 * Participating entities
+* Relationship attributes (if any)
+* Relationship degree
 * Relationship meaning
 * Business interpretation
 
@@ -161,29 +182,115 @@ Do not model the following as entities unless explicitly required:
 * Categories
 * Simple descriptions
 
+Do not model lifecycle stages of the same business process as separate entities unless the stage has independent existence and its own business identifier instead of creating separate entities.
+
+Do not introduce an associative entity merely because a relationship is M:N.
+
+First determine whether the relationship represents:
+
+* a business process,
+* a business event,
+* a transaction,
+* or an independently managed business object.
+
+Create an associative entity only when the relationship:
+
+* has its own business identity,
+* has a lifecycle or status,
+* participates in additional relationships,
+* stores significant business information,
+* or must be tracked independently over time.
+
+Otherwise, model it as a relationship, even if the relationship is M:N.
+
 ### Attribute Identification Rules
 
 Attributes should:
 
-* Describe an entity
-* Be atomic whenever possible
-* Avoid derived values unless required by the business
+* Describe characteristics of an entity.
+* Be atomic whenever possible.
+* Avoid derived values unless required by the business.
+* Have clear business meaning.
+* Represent information that must be stored rather than inferred from relationships or business rules.
+
+Do not model the following as attributes when they represent independent business concepts:
+
+* Business objects that require their own identity.
+* Business processes or transactions.
+* Multi-valued information that should be modeled separately.
+* Information that belongs to a relationship rather than an entity.
+
+Consider whether an attribute:
+
+* Is mandatory or optional.
+* May participate in identification.
+* May be constrained by business rules.
+* May influence the state or lifecycle of the entity.
 
 ### Relationship Rules
 
 Every identified relationship should:
 
-* Connect valid entities
-* Have a clear business meaning
-* Include cardinality
+* Connect valid entities.
+* Have a clear business meaning.
+* Include cardinality.
+* Be supported by the business requirements.
+* Represent an actual business association rather than a technical implementation detail.
+
+For each relationship, determine:
+
+* Participation constraints.
+* Direction of business interaction where applicable.
+* Whether the relationship is mandatory or optional.
+* Whether the relationship has its own attributes.
+* Whether the relationship represents a business event, transaction, or process.
+
+Do not introduce associative entities solely because a relationship exists or because the relationship is many-to-many.
+
+Only introduce an associative entity when the relationship itself has independent business significance and must be managed, tracked, or governed by business rules.
+
+Prefer modeling business associations as relationships before considering implementation-oriented structures.
 
 ### Business Rule Rules
 
-Business rules should be:
+Business rules should:
 
-* Testable
-* Unambiguous
-* Traceable to the requirements
+* Be testable.
+* Be unambiguous.
+* Be traceable to one or more requirement statements.
+* Express a business constraint, policy, condition, or obligation.
+* Describe what must, must not, can, or cannot occur within the business domain.
+* Remain independent of implementation details whenever possible.
+
+A business rule should not merely restate stored data. It should define constraints, permissions, dependencies, or conditions governing the use of that data.
+
+When identifying business rules, analyze the requirements for:
+
+* Validation constraints on data values.
+* Constraints involving multiple entities or relationships.
+* Temporal or sequencing requirements.
+* Authorization and responsibility restrictions.
+* State- or status-dependent behavior.
+* Preconditions and postconditions of business activities.
+* Exclusivity, uniqueness, capacity, or availability constraints.
+* Lifecycle and workflow constraints.
+* Historical record retention requirements.
+* Mandatory versus optional business actions.
+
+Classify identified business rules where appropriate into categories such as:
+
+* Data Validation Rules
+* Relationship Rules
+* Temporal Rules
+* Authorization Rules
+* Status Rules
+* Lifecycle Rules
+* Cross-Entity Rules
+* Operational Policies
+
+If a business rule is implied by multiple requirement statements but not explicitly stated, record it as a derived business rule and document the reasoning used to infer it.
+
+Do not infer business rules that cannot be reasonably justified from the requirements.
 
 ---
 
@@ -226,6 +333,9 @@ Before saving the document, verify that:
 * Derived business rules are identified when applicable.
 * Ambiguities are documented.
 * Output follows the required template structure.
+* Workflow steps are not incorrectly modeled as independent relationships.
+* Relationships represent associations between business objects rather than stages of the same business process.
+* Business processes are modeled cohesively and are not fragmented into multiple entities or relationships without justification.
 
 ---
 

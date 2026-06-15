@@ -18,13 +18,13 @@
 
 ## 2. Actors
 
-| Actor | Description | Responsibilities |
-| ----- | ----------- | ---------------- |
-|       |             |                  |
+| Actor | Actor type | Description | Responsibilities |
+| ----- | ---------- | ----------- | ---------------- |
+|       |            |             |                  |
 
 ---
 
-## 3. Candidate Entities
+## 3. Entities
 
 | Entity | Description | Justification |
 | ------ | ----------- | ------------- |
@@ -34,13 +34,13 @@
 
 ## 4. Relationships
 
-| Relationship | Participating Entities | Description |
-| ------------ | ---------------------- | ----------- |
-|              |                        |             |
+| Relationship | Degree | Relationship Attributes | Participating Entities | Description |
+| ------------ | ------ | ----------------------- | ---------------------- | ----------- |
+|              |        |                         |                        |             |
 
 ---
 
-## 5. Attributes
+## 5. Attributes 
 
 ### Entity: [Entity Name]
 
@@ -50,21 +50,13 @@
 
 Repeat for every entity.
 
-### Relationship: [Relationship Name]
-
-| Attribute | Description | Notes |
-| --------- | ----------- | ----- |
-|           |             |       |
-
-Repeat for every relationship (if they have).
-
 ---
 
 ## 6. Cardinalities
 
 | Relationship | Cardinality | Justification |
 | ------------ | ----------- | ------------- |
-|              |             |               |
+|              |             |               |               |
 
 Examples:
 
