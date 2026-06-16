@@ -1,4 +1,4 @@
-## Business requirement description
+# Business requirement description
 
 The School of Computer Science manages several shared physical spaces used for teaching, seminars, examinations, workshops, student projects, research activities, and academic events. These spaces include auditoriums, classrooms, computer laboratories, project laboratories, meeting rooms, and student workspaces.
 
