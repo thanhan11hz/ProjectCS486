@@ -1,16 +1,16 @@
 ---
-description: Extract all business concepts, terms, and domain objects explicitly or implicitly mentioned in the requirements without classification or interpretation.
+description: Derive candidate entities and attributes from classified concepts by identifying information that requires independent storage, identification, and lifecycle management.
 ---
 
 Execute:
 
 1. Load:
-   `.opencode/skills/business-analysis/extract-concept/SKILL.md`
+   `.opencode/skills/business-analysis/derive-entity-att/SKILL.md`
 
 2. Execute the skill.
 
 3. Generate or update:
-   `docs/business-analysis/extract-concept.md`
+   `docs/business-analysis/derive-entity-att.md`
 
 4. Stop.
 
