@@ -46,60 +46,86 @@ No prerequisite artifacts are required.
 
 ---
 
-## Entity Identification Rules
+## Entity Design Rules
 
-### Rule 1 — Independent Business Object Rule
+### 1. Entity Separation Principle
 
-A concept should be considered an entity if the organization manages it as an independent business object.
-
-Indicators include:
-
-* Has its own business meaning
-* Exists independently of a single transaction
-* Must be stored and retrieved later
-* Can be referenced by multiple activities
-
-Examples:
-
-* User
-* Space
-* Facility
+Create a separate entity only if it represents an **independent business process** with its own purpose and meaning in the system.
 
 ---
 
-### Rule 2 — Business Record Rule
+### 2. Actor-Based Separation
 
-A concept may also be considered an entity when it represents a business record that must be tracked over time.
+If a process is performed by **different user roles independently**, it should be modeled as a separate entity.
 
-Indicators include:
+* Example:
 
-* Has a lifecycle
-* Has a status
-* Maintains historical information
-* Requires auditing or reporting
-
-Examples:
-
-* Booking
-* Maintenance Record
-
-These are not physical objects but are still valid business entities because they represent business records that must be managed independently.
+  * Booking → created by requester
+  * Approval → performed by staff/manager
+  * Session → handled by facility staff
 
 ---
 
-### Rule 3 — Independent Lifecycle Rule
+### 3. Lifecycle Independence Rule
+
+An entity should be created if it has its **own lifecycle**, meaning it can:
+
+* be created at a different time
+
+* progress through its own states
+
+* exist even if another related entity does not complete
+
+* Example:
+
+  * A booking can exist without approval
+  * A session may not exist for every booking
+
+---
+
+### 4. Data Responsibility Rule
+
+If a set of attributes describes a **different type of information or responsibility**, it should belong to a separate entity.
+
+* Example:
+
+  * Booking → request details
+  * Approval → decision details
+  * Session → actual usage details
+
+---
+
+### 5. Dependency Rule
+
+Do not separate entities if one cannot exist without the other.
+
+* Example:
+
+  * Check-out cannot exist without check-in
+    → therefore both belong to the same Session entity
+
+---
+
+### 6. Avoid Timestamp-Only Entities
+
+Do not create entities whose primary purpose is to store:
+
+* timestamps
+* status updates
+* simple event markers
+
+These should be attributes of an existing entity.
+
+---
+
+### 7. Independent Lifecycle Rule
 
 A concept is likely an entity if it has its own lifecycle or state transitions.
 
 Examples:
 
-Booking
-
-Pending → Approved → Checked In → Completed → No Show → Cancelled
-
-Maintenance Record
-
-Reported → Assigned → In Progress → Completed
+* Sessions have a lifecycle distinct from Booking (scheduled booking may never produce a Session; Sessions may be created or modified by facility staff later).
+* Approvals can be created, modified, or revoked independently of the Booking (not just a single timestamp/flag).
 
 Lifecycle states themselves are not entities.
 
@@ -107,131 +133,54 @@ The business record that owns the lifecycle is the entity.
 
 ---
 
-### Rule 4 — Description Rule
+### 8. Extensibility Rule
 
-Information that merely describes another object is not an entity.
+Design entities with consideration for future system changes and feature expansion.
 
-Such information should be treated as attributes.
+An entity should be structured in a way that allows the system to:
 
-Examples:
-
-* Phone Number
-* Email
-* Capacity
-* Purpose
-* Usage Note
-* Floor
-* Building
+* accommodate new requirements without major redesign
+* avoid breaking existing relationships
+* minimize schema changes when adding new features
 
 ---
 
-### Rule 5 — Enumeration Rule
+### 9. Faithfulness Principle (**Important**)
 
-Classification values and status values are not entities.
+Entity sets and their attributes should closely reflect **real-world concepts and processes**.
 
-Examples:
+Ideally, each entity represents **a single coherent concept** with:
 
-* Student
-* Lecturer
-* Facility Staff
-* Available
-* Under Maintenance
-* Pending
-* Approved
-* Rejected
+* a clear purpose
+* a consistent set of responsibilities
+* and a well-defined role in the system
 
-These should be treated as attribute values unless the requirements explicitly indicate separate management of those concepts.
+When an entity appears to combine multiple aspects, consider:
 
----
+* Does it represent **more than one stage of a real-world process**?
+* Are its attributes managed or updated by **different user roles**?
+* Do its data elements describe **different types of information** (e.g., request, decision, execution)?
 
-### Rule 6 — Relationship-Only Rule
+If multiple answers are **yes**, the design may not accurately reflect reality and should be reconsidered.
 
-Do not create entities for concepts that merely express a connection between two business objects.
+In such cases, it is often more appropriate to separate the entity into smaller ones, where each:
 
-Examples:
-
-* Space Facility
-* User Space
-* Space Usage
-
-These should remain relationship candidates for later analysis.
-
-The decision to create associative entities belongs to later design stages.
+* represents a distinct real-world process
+* is associated with a clearer responsibility
+* aligns with a more specific actor or role
 
 ---
 
-## Workflow Aggregation Rules
+#### Note on Granularity
 
-### Rule 7 — Single Process Aggregation
+However, not all internal steps require separation.
+Actions that are:
 
-Do not create separate entities for concepts that merely represent state transitions, lifecycle stages, or operational actions within another business entity.
+* tightly coupled
+* handled within the same process
+* and not independently managed
 
-Examples:
-
-* Check In
-* Check Out
-* Completion
-* Assignment
-* Status Change
-
-These concepts describe actions performed on a business entity rather than business entities themselves.
-
----
-
-### Important Distinction
-
-A concept should NOT be consolidated merely because it occurs within the same business process.
-
-Business process membership alone is not sufficient to eliminate an entity if they represent distinct business records with their own information, history, actors, or audit requirements.
-
----
-
-## Attribute Identification Rules
-
-### Rule 8 — Descriptive Attribute Rule
-
-An attribute should describe a property of an entity.
-
-Examples:
-
-User
-
-* user_id
-* full_name
-* email
-* phone_number
-* account_status
-
-Space
-
-* space_code
-* space_name
-* capacity
-* room_number
-
----
-
-### Rule 9 — Exclude Relationship Information
-
-Do not classify references to other business objects as attributes.
-
-Examples:
-
-Booking references:
-
-* requester
-* space
-* approver
-
-These indicate relationships and should be handled later.
-
----
-
-### Rule 10 — Atomic Business Information Rule
-
-Attributes should represent a single piece of business information whenever practical.
-
-Avoid deriving large narrative structures or combined concepts as attributes.
+are often better represented as **attributes rather than separate entities**.
 
 ---
 
@@ -275,7 +224,7 @@ Do not classify yet.
 
 ### Step 3 — Evaluate Entity Candidates
 
-Apply the Entity Identification Rules.
+Apply the Entity Design Rules.
 
 For each concept determine:
 
@@ -309,15 +258,7 @@ when they are merely lifecycle events.
 
 ---
 
-### Step 5 — Evaluate Approval Concepts
-
-Apply the Approval Identification Rules.
-
-Do not create Approval entities unless explicit evidence supports independent approval management.
-
----
-
-### Step 6 — Derive Attributes
+### Step 5 — Derive Attributes
 
 For each accepted entity:
 
@@ -330,7 +271,7 @@ Retain only true attributes.
 
 ---
 
-### Step 7 — Validate Results
+### Step 6 — Validate Results
 
 Verify each entity satisfies at least one condition:
 
@@ -375,9 +316,7 @@ Those activities belong to later stages.
 
 Examples used in this skill are illustrative only.
 
-Do not reuse example entities, actors, activities, or business rules from the examples.
-
-Always derive results exclusively from the provided business requirements.
+But they are to be seriously considered, since they can be very useful.
 
 ---
 
@@ -412,10 +351,6 @@ Before saving the artifact, verify:
 * Check-in and completion are not automatically treated as entities.
 * Status transitions are not treated as entities.
 * Workflow stages are not treated as entities.
-
-### Approval Validation
-
-* Approval entities exist only when explicitly justified by requirements.
 
 ### Attribute Validation
 

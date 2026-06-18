@@ -4,90 +4,63 @@
 
 ### Business Domain Overview
 
-The system manages shared physical spaces (auditoriums, classrooms, computer laboratories, project laboratories, meeting rooms, student workspaces) for the School of Computer Science.
-
-Main business activities:
-
-- Space booking request submission
-- Booking approval and rejection
-- Check-in and check-out of booked sessions
-- Maintenance management for spaces
-- Usage monitoring and history viewing
-
-Main business records:
-
-- Booking requests (with lifecycle: pending → approved/rejected → checked in → completed/no-show/cancelled)
-- Maintenance records (with lifecycle: reported → assigned → in progress → completed)
-
-Important information that must be stored:
-
-- User identity, contact, role, and account status
-- Space catalog with identifiers, location, capacity, status, and policy
-- Facility inventory per space
-- Booking request details, status, and decision audit trail
-- Check-in and check-out session data
-- Maintenance problem reports, assignment, and resolution
+* The system manages shared campus spaces (auditoriums, classrooms, computer laboratories, project laboratories, meeting rooms, student workspaces) used for teaching, seminars, examinations, workshops, student projects, research activities, and academic events.
+* Main business activities: submitting booking requests, approving/rejecting bookings, checking in and completing usage sessions, recording maintenance issues, and tracking facility utilization.
+* Main business records: booking requests, approval decisions, usage sessions, maintenance records.
+* Important information that must be stored includes user details, space details, facility lists per space, booking request parameters, approval decisions, actual usage data, and maintenance history.
 
 ---
 
 ## 2. Candidate Concepts
 
-| Concept | Requirement Evidence | Initial Category |
-| ------- | -------------------- | ---------------- |
-| User | "Each user must have a university account. The system stores basic user information, including user ID, full name, email, phone number, role, department, and account status." | Business Object |
-| Space | "The School manages many bookable spaces. For each space, the system stores a unique space code, space name, space type, building, floor, room number, capacity, current status, and usage policy." | Business Object |
-| Facility | "Each space may have several facilities, such as a projector, whiteboard, microphone, computer, livestreaming equipment, or air conditioner. The system should store the list of facilities available in each space." | Relationship Candidate |
-| Booking | "Users can submit booking requests by selecting a space, requested start time, requested end time, purpose of use, and expected number of participants." | Business Record |
-| Maintenance Record | "A space may have maintenance records for problems such as broken projectors, air-conditioning failure, damaged furniture, cleaning issues, or network problems." | Business Record |
-| Check In | "When the requester arrives, facility staff can check in the booking. The system records the actual start time, the person who checked in the booking, and the initial condition of the space." | Workflow Step |
-| Check Out / Completion | "When the session ends, facility staff can complete the booking by recording the actual end time, the final condition of the space, and any usage notes." | Workflow Step |
-| Booking Approval | "A booking request may require approval from a facility staff member or manager. When a booking is approved or rejected, the system records the staff member who made the decision, the decision time, and a decision note." | Workflow Step |
-| Space Type | "space type" (classroom, computer laboratory, meeting room, auditorium implied) | Classification Value |
-| Space Status | "current status" (available, in use, under maintenance, temporarily closed, or retired) | Classification Value |
-| Booking Status | "status, such as pending, approved, rejected, cancelled, checked in, completed, or no-show" | Classification Value |
-| Maintenance Status | "status" | Classification Value |
-| Role | "role" (student, lecturer, teaching assistant, facility staff, department administrator, facility manager) | Classification Value |
-| Account Status | "account status" | Classification Value |
-| Booking Purpose | "purpose of use" (lecture, examination, seminar, workshop, meeting, student activity, or administrative event) | Classification Value |
-| Building | "building" | Attribute Candidate |
-| Floor | "floor" | Attribute Candidate |
-| Room Number | "room number" | Attribute Candidate |
-| Capacity | "capacity" | Attribute Candidate |
-| Usage Policy | "usage policy" | Attribute Candidate |
+| Concept              | Requirement Evidence | Initial Category           |
+| -------------------- | -------------------- | -------------------------- |
+| User                 | Lines 13-14          | Business Object            |
+| Space                | Lines 15-16          | Business Object            |
+| Facility             | Lines 17-18          | Business Object            |
+| Booking Request      | Lines 19-21          | Business Record            |
+| Approval             | Lines 23-24          | Business Record            |
+| Check-in             | Lines 25-26          | Workflow Step              |
+| Check-out/Completion | Lines 25-26          | Workflow Step              |
+| Session              | Lines 25-26          | Business Record            |
+| Maintenance Record   | Lines 27-28          | Business Record            |
+| Incident Report      | Line 8               | Business Record            |
+| Space Type           | Line 15              | Classification Value       |
+| Booking Status       | Lines 21-22          | Status Value               |
+| Space Status         | Line 16              | Status Value               |
+| User Role            | Lines 13-14          | Classification Value       |
+| Booking Purpose      | Line 19              | Classification Value       |
+| Problem Type         | Line 27              | Classification Value       |
 
 ---
 
 ## 3. Accepted Entities
 
-| Entity | Entity Type | Justification |
-| ------ | ----------- | ------------- |
-| User | Business Object | Users are independently managed by the university, have their own identity (university account), and participate in multiple business processes (booking, approval, check-in, maintenance). |
-| Space | Business Object | Spaces are independently managed physical resources that can be booked, maintained, and referenced by multiple activities across the organization. |
-| Booking | Business Record | Booking requests have a defined lifecycle (pending → approved/rejected → checked in → completed/no-show/cancelled), a status that transitions over time, and maintain historical audit information for reporting. |
-| Maintenance Record | Business Record | Maintenance records track problems from reporting through resolution, have a lifecycle (reported → assigned → in progress → completed), a status, and must retain historical data for facility management. |
+| Entity             | Entity Type     | Justification                                                                                                                                               |
+| ------------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User               | Business Object | Users are independently managed by the organization through university accounts with lifecycle (account status). Users participate in multiple processes.    |
+| Space              | Business Object | Spaces are managed physical resources with their own lifecycle (available, in use, under maintenance, closed, retired).                                     |
+| Facility           | Business Object | Facilities represent equipment/amenities in spaces. They require independent storage to support flexible assignment and future equipment tracking.          |
+| Booking            | Business Record | Booking requests are the core business transaction with a complete lifecycle (pending, approved, rejected, cancelled, checked in, completed, no-show).      |
+| Approval           | Business Record | Approval decisions are made by different actors (staff/manager) than the requester, with distinct data (decision, decision maker, time, note, reason).       |
+| Session            | Business Record | Actual usage sessions have their own data (actual times, conditions, notes) managed by facility staff. A booking may never result in a session (no-show).   |
+| Maintenance Record | Business Record | Maintenance records have their own lifecycle (reported, in progress, completed) and are independent of the booking process.                                  |
 
 ---
 
 ## 4. Rejected Concepts
 
-| Concept | Classification | Reason for Rejection | Violated Rule |
-| ------- | -------------- | -------------------- | ------------- |
-| Facility | Relationship Candidate | Represents equipment that describes a space rather than an independently managed object; requirements do not indicate independent lifecycle, tracking, or management of facilities. | Rule 4, Rule 6 |
-| Check In | Workflow Step | A lifecycle event of Booking that records the actual start of a session; does not exist independently of a booking. | Rule 7 |
-| Check Out / Completion | Workflow Step | A lifecycle event of Booking that records the end of a session; does not exist independently of a booking. | Rule 7 |
-| Booking Approval | Workflow Step | Decision-making action within the Booking lifecycle; no evidence of independent approval management or multi-step approval workflow. | Rule 7 |
-| Space Type | Classification Value | Classification of spaces into categories (classroom, laboratory, etc.); not an independently managed object. | Rule 5 |
-| Space Status | Classification Value | Status value indicating current operational state of a space; stored as attribute value. | Rule 5 |
-| Booking Status | Classification Value | Status value indicating where a booking is in its lifecycle; stored as attribute value. | Rule 5 |
-| Maintenance Status | Classification Value | Status value indicating the stage of a maintenance task; stored as attribute value. | Rule 5 |
-| Role | Classification Value | User role classification (student, lecturer, etc.); stored as attribute value. | Rule 5 |
-| Account Status | Classification Value | Status value for user account state; stored as attribute value. | Rule 5 |
-| Booking Purpose | Classification Value | Purpose classification for a booking; stored as attribute value. | Rule 5 |
-| Building | Attribute Candidate | Describes a property of Space (location information). | Rule 4 |
-| Floor | Attribute Candidate | Describes a property of Space (location information). | Rule 4 |
-| Room Number | Attribute Candidate | Describes a property of Space (location information). | Rule 4 |
-| Capacity | Attribute Candidate | Describes a property of Space (maximum occupancy). | Rule 4 |
-| Usage Policy | Attribute Candidate | Describes rules governing how a Space may be used. | Rule 4 |
+| Concept            | Classification       | Reason for Rejection                                                                                                      | Violated Rule            |
+| ------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Check-in           | Workflow Step        | Represents a lifecycle event within Session rather than an independent business object. Merged into Session.              | Lifecycle Independence   |
+| Check-out/Complete | Workflow Step        | Represents a lifecycle event within Session. Cannot exist without check-in. Merged into Session.                          | Dependency Rule          |
+| Incident Report    | Implementation Gap   | Mentioned once (line 8) without any defined attributes, actors, or process. Insufficient to model. May overlap with Maintenance. | Entity Separation    |
+| Space Type         | Classification Value | Describes a property of Space, not an independent concept with its own lifecycle.                                         | Attribute Candidate      |
+| Booking Status     | Status Value         | Represents the current state of a Booking lifecycle. Should be an attribute of Booking.                                   | Timestamp-Only / Status  |
+| Space Status       | Status Value         | Represents the current state of a Space lifecycle. Should be an attribute of Space.                                       | Timestamp-Only / Status  |
+| User Role          | Classification Value | Describes a property of User. Acts as a classification for access control.                                                | Attribute Candidate      |
+| Booking Purpose    | Classification Value | Describes the reason for a Booking. Should be an attribute of Booking.                                                    | Attribute Candidate      |
+| Problem Type       | Classification Value | Describes the type of maintenance issue. Should be an attribute or reference for Maintenance Record.                      | Attribute Candidate      |
 
 ---
 
@@ -97,25 +70,25 @@ Important information that must be stored:
 
 #### Description
 
-A person who has a university account and interacts with the space management system. Users may be students, lecturers, teaching assistants, facility staff, department administrators, or facility managers.
+A person who interacts with the system. Users have university accounts and can act in various roles (student, lecturer, TA, facility staff, department administrator, facility manager).
 
 #### Candidate Attributes
 
-| Attribute | Justification |
-| --------- | ------------- |
-| user_id | Unique identifier from the university account system. |
-| full_name | Personal name of the user. |
-| email | Contact email address. |
-| phone_number | Contact phone number. |
-| role | User classification (student, lecturer, teaching assistant, facility staff, department administrator, facility manager). Classification value stored as attribute. |
-| department | Department or organizational unit the user belongs to. |
-| account_status | Indicates whether the account is active, suspended, etc. Classification value stored as attribute. |
+| Attribute      | Justification                                                                       |
+| -------------- | ----------------------------------------------------------------------------------- |
+| user_id        | Unique identifier for each user (line 13).                                          |
+| full_name      | Required for identification and communication (line 13).                            |
+| email          | Required for notifications and account correspondence (line 13).                    |
+| phone_number   | Required for contact purposes (line 13).                                            |
+| role           | Determines permissions and system capabilities (line 13).                           |
+| department     | Identifies organizational affiliation (line 13).                                    |
+| account_status | Tracks whether the account is active, suspended, etc. (line 13).                    |
 
 #### Excluded Information
 
-| Information | Reason |
-| ----------- | ------ |
-| *None identified* | All discovered information about User is descriptive. |
+| Information    | Reason                              |
+| -------------- | ----------------------------------- |
+| staff/manager  | This is a role value, not attribute |
 
 ---
 
@@ -123,27 +96,49 @@ A person who has a university account and interacts with the space management sy
 
 #### Description
 
-A physical room or area on campus that can be booked for teaching, seminars, examinations, workshops, student projects, research activities, and academic events.
+A bookable physical location on campus managed by the School of Computer Science.
 
 #### Candidate Attributes
 
-| Attribute | Justification |
-| --------- | ------------- |
-| space_code | Unique identifier assigned to the space (e.g., room code). |
-| space_name | Display name or label for the space. |
-| space_type | Category of space (classroom, computer laboratory, meeting room, auditorium, etc.). Classification value stored as attribute. |
-| building | Building where the space is located. |
-| floor | Floor level within the building. |
-| room_number | Room number or identifier within the building. |
-| capacity | Maximum number of people the space can accommodate. |
-| current_status | Operational state (available, in use, under maintenance, temporarily closed, retired). Classification value stored as attribute. |
-| usage_policy | Rules or guidelines governing how the space may be used. |
+| Attribute   | Justification                                                           |
+| ----------- | ----------------------------------------------------------------------- |
+| space_code  | Unique identifier for the space (line 15).                              |
+| space_name  | Human-readable name for the space (line 15).                            |
+| space_type  | Classification of the space (auditorium, classroom, etc.) (line 15).    |
+| building    | Identifies which building the space is in (line 15).                    |
+| floor       | Floor number within the building (line 15).                             |
+| room_number | Room identifier within the building (line 15).                          |
+| capacity    | Maximum number of occupants (line 15).                                  |
+| status      | Current availability state (line 16).                                   |
+| usage_policy | Rules governing how the space may be used (line 15).                   |
 
 #### Excluded Information
 
-| Information | Reason |
-| ----------- | ------ |
-| facilities | Relationship candidate — represents equipment associated with the space, not a descriptive attribute. |
+| Information | Reason                              |
+| ----------- | ----------------------------------- |
+| facilities  | Relationship candidate (many-to-many with Facility) |
+
+---
+
+### Entity: Facility
+
+#### Description
+
+Equipment or amenities available in a space. Examples include projector, whiteboard, microphone, computer, livestreaming equipment, air conditioner.
+
+#### Candidate Attributes
+
+| Attribute     | Justification                                              |
+| ------------- | ---------------------------------------------------------- |
+| facility_id   | Unique identifier for each facility type.                  |
+| facility_name | Descriptive name of the facility (projector, etc.) (line 17). |
+| description   | Optional details about the facility.                       |
+
+#### Excluded Information
+
+| Information | Reason                              |
+| ----------- | ----------------------------------- |
+| space       | Relationship candidate (many-to-many with Space) |
 
 ---
 
@@ -151,35 +146,78 @@ A physical room or area on campus that can be booked for teaching, seminars, exa
 
 #### Description
 
-A request submitted by a user to reserve a specific space for a defined time period and purpose, with an associated lifecycle and decision audit trail.
+A request submitted by a user to reserve a space for a specific time period and purpose.
 
 #### Candidate Attributes
 
-| Attribute | Justification |
-| --------- | ------------- |
-| booking_id | Unique identifier for the booking request. |
-| requested_start_time | Date and time when the requester wants the booking to begin. |
-| requested_end_time | Date and time when the requester wants the booking to end. |
-| purpose_of_use | Reason for the booking (lecture, examination, seminar, workshop, meeting, student activity, administrative event). Classification value stored as attribute. |
-| expected_number_of_participants | Number of people expected to attend. |
-| status | Current state in the booking lifecycle (pending, approved, rejected, cancelled, checked in, completed, no-show). Classification value stored as attribute. |
-| decision_time | Date and time when the approval or rejection decision was made. |
-| decision_note | Optional note recorded by the decision-maker. |
-| rejection_reason | Reason provided when the booking is rejected. |
-| actual_start_time | Actual start time recorded at check-in. |
-| initial_condition | Condition of the space recorded at check-in. |
-| actual_end_time | Actual end time recorded at check-out. |
-| final_condition | Condition of the space recorded at check-out. |
-| usage_notes | Notes recorded at check-out about the session. |
+| Attribute              | Justification                                                     |
+| ---------------------- | ----------------------------------------------------------------- |
+| booking_id             | Unique identifier for the booking request.                        |
+| requested_start_time   | When the requester wants the booking to begin (line 19).          |
+| requested_end_time     | When the requester wants the booking to end (line 19).            |
+| purpose                | Reason for the booking (lecture, exam, etc.) (line 19).           |
+| expected_participants  | Number of people expected to attend (line 19).                    |
+| status                 | Current lifecycle state (pending, approved, etc.) (line 21).      |
 
 #### Excluded Information
 
-| Information | Reason |
-| ----------- | ------ |
-| requester | Relationship candidate — references the User who submitted the booking. |
-| space | Relationship candidate — references the Space being booked. |
-| staff_member_who_made_decision | Relationship candidate — references the User who approved or rejected. |
-| person_who_checked_in | Relationship candidate — references the User who performed check-in. |
+| Information   | Reason                              |
+| ------------- | ----------------------------------- |
+| requester     | Relationship candidate (references User) |
+| space         | Relationship candidate (references Space) |
+| approval      | Separate entity: Approval           |
+| check-in/out  | Separate entity: Session            |
+
+---
+
+### Entity: Approval
+
+#### Description
+
+A decision made by facility staff or manager to approve or reject a booking request.
+
+#### Candidate Attributes
+
+| Attribute       | Justification                                                        |
+| --------------- | -------------------------------------------------------------------- |
+| approval_id     | Unique identifier for the approval decision.                         |
+| decision        | Whether the booking was approved or rejected (line 23).              |
+| decision_time   | When the decision was made (line 23).                                |
+| decision_note   | Notes accompanying the decision (line 23).                           |
+| rejection_reason | Required if the booking was rejected (line 24).                     |
+
+#### Excluded Information
+
+| Information     | Reason                              |
+| --------------- | ----------------------------------- |
+| decision_maker  | Relationship candidate (references User/Staff) |
+| booking         | Relationship candidate (references Booking) |
+
+---
+
+### Entity: Session
+
+#### Description
+
+The actual usage of a space corresponding to a booking. Captures what happened in reality versus what was requested.
+
+#### Candidate Attributes
+
+| Attribute        | Justification                                                  |
+| ---------------- | -------------------------------------------------------------- |
+| session_id       | Unique identifier for the session.                             |
+| actual_start_time | When the space was actually occupied (line 25).                |
+| actual_end_time   | When the usage actually ended (line 26).                       |
+| initial_condition | Condition of the space at check-in (line 25).                  |
+| final_condition   | Condition of the space at completion (line 26).                |
+| usage_notes       | Any notes about the usage session (line 26).                   |
+
+#### Excluded Information
+
+| Information    | Reason                              |
+| -------------- | ----------------------------------- |
+| checked_in_by  | Relationship candidate (references User/Staff) |
+| booking        | Relationship candidate (references Booking) |
 
 ---
 
@@ -187,56 +225,58 @@ A request submitted by a user to reserve a specific space for a defined time per
 
 #### Description
 
-A record of a problem reported for a space, tracking the issue from reporting through assignment and resolution.
+A record of a maintenance issue reported for a space, tracking the problem through resolution.
 
 #### Candidate Attributes
 
-| Attribute | Justification |
-| --------- | ------------- |
-| maintenance_id | Unique identifier for the maintenance record. |
-| problem_description | Description of the issue (broken projector, air-conditioning failure, damaged furniture, cleaning issue, network problem, etc.). |
-| start_time | Date and time when the problem was reported. |
-| completion_time | Date and time when the maintenance was completed. |
-| status | Current state of the maintenance task (reported, assigned, in progress, completed). Classification value stored as attribute. |
-| result_note | Note describing the resolution outcome. |
+| Attribute         | Justification                                                   |
+| ----------------- | --------------------------------------------------------------- |
+| maintenance_id    | Unique identifier for the maintenance record.                   |
+| problem_description | Description of the issue (line 27).                           |
+| start_time        | When the maintenance was reported or started (line 27).         |
+| completion_time   | When the maintenance was completed (line 27).                   |
+| status            | Current state (reported, in progress, completed) (line 27).     |
+| result_note       | Outcome of the maintenance work (line 27).                      |
 
 #### Excluded Information
 
-| Information | Reason |
-| ----------- | ------ |
-| related_space | Relationship candidate — references the Space being maintained. |
-| reporter | Relationship candidate — references the User who reported the problem. |
-| assigned_staff_member | Relationship candidate — references the User assigned to resolve the issue. |
+| Information    | Reason                              |
+| -------------- | ----------------------------------- |
+| space          | Relationship candidate (references Space) |
+| reporter       | Relationship candidate (references User) |
+| assigned_staff | Relationship candidate (references User/Staff) |
 
 ---
 
 ## 6. Workflow Consolidation Decisions
 
-| Workflow Concepts | Consolidated Entity | Justification |
-| ----------------- | ------------------- | ------------- |
-| Check In, Check Out / Completion, Booking Approval | Booking | Check-in, check-out, and approval are lifecycle events or actions performed on a Booking. They do not exist independently and are not managed as separate business records. Their data is captured as attributes within the Booking entity. |
+| Workflow Concepts     | Consolidated Entity | Justification                                                                                    |
+| --------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
+| Check-in, Completion  | Session             | Check-in and completion are two lifecycle events of the same actual usage process. They cannot exist independently of each other (Dependency Rule). |
+
+No other workflow fragmentation was identified.
 
 ---
 
 ## 7. Assumptions
 
-| ID | Assumption | Justification |
-| -- | ---------- | ------------- |
-| A-01 | Each user has a unique university account identifier that can serve as a natural key. | The requirements state "Each user must have a university account" with a "user ID" but do not specify its format. |
-| A-02 | Facilities are descriptive lists associated with spaces and are not independently managed. | The requirements only mention storing a list of facilities per space; no independent lifecycle, maintenance, or tracking of individual facility items is described. |
-| A-03 | Booking approval is a single-step decision (approve or reject) with no multi-level or chain approval workflow. | The requirements describe approval as "a booking request may require approval from a facility staff member or manager" without mentioning multiple approvers or sequential approvals. |
-| A-04 | The same user who checks in a booking is responsible for checking out (completing) the booking. | The requirements describe both check-in and check-out being performed by "facility staff" but do not specify whether the same person must perform both. The attributes for checked-in-by and actual start time are recorded separately from check-out attributes. |
+| ID   | Assumption | Justification |
+| ---- | ---------- | ------------- |
+| A-01 | A booking request is always associated with a single space. | The requirements describe booking as selecting "a space" (singular), not multiple spaces. |
+| A-02 | A booking can have at most one approval decision. | The requirements describe a single approval/rejection flow. No multi-level approval is mentioned. |
+| A-03 | A session is always linked to exactly one approved booking. | The requirements present check-in and completion as operations on a booking, not as walk-in usage. |
+| A-04 | Facility is modeled as an entity rather than a multi-valued attribute to support future equipment tracking. | The requirements only require storing a list, but the Extensibility Rule favors an entity design. |
 
 ---
 
 ## 8. Unresolved Questions
 
-| ID | Question | Potential Impact |
-| -- | -------- | ---------------- |
-| Q-01 | Can a booking have multiple approval attempts (e.g., rejected then re-submitted and approved)? | May affect whether rejection_reason and decision fields need to support multiple decision records per booking. |
-| Q-02 | Is the facility list for a space a fixed enumeration of types or can facility items be individually identified and tracked? | Affects whether Facility becomes its own entity in later design stages. |
-| Q-03 | Can a space have multiple concurrent maintenance records? | Affects whether the relationship between Space and Maintenance Record is one-to-many and whether overlapping maintenance periods are permitted. |
-| Q-04 | What is the exact behavior when a booking status transitions from "checked in" to "completed" versus "no-show"? | Affects whether additional rules are needed to determine no-show status (e.g., no check-in within a grace period). |
+| ID   | Question | Potential Impact |
+| ---- | -------- | ---------------- |
+| Q-01 | What does "incident reporting" (line 8) entail? Is it separate from maintenance records? | May require an additional Incident entity if scoped independently of maintenance. |
+| Q-02 | Can a user have multiple roles? | Affects whether role is a single-valued or multi-valued attribute of User. |
+| Q-03 | Can a booking be modified after submission (e.g., time change) before approval? | Affects Booking lifecycle states and whether modification history must be tracked. |
+| Q-04 | What is the exact set of valid booking statuses and their allowed transitions? | Affects data validation rules for Booking.status. |
 
 ---
 
@@ -244,12 +284,15 @@ A record of a problem reported for a space, tracking the issue from reporting th
 
 ### Business Objects
 
-- User
-- Space
+* User
+* Space
+* Facility
 
 ### Business Records
 
-- Booking
-- Maintenance Record
+* Booking
+* Approval
+* Session
+* Maintenance Record
 
-Total Entities Identified: 4
+Total Entities Identified: 7
