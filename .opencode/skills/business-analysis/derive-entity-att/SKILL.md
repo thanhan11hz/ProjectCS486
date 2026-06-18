@@ -48,7 +48,7 @@ No prerequisite artifacts are required.
 
 ## Entity Identification Rules
 
-### Rule 1 — Independent Business Object Rule
+### Rule 1 
 
 A concept should be considered an entity if the organization manages it as an independent business object.
 
@@ -67,7 +67,7 @@ Examples:
 
 ---
 
-### Rule 2 — Business Record Rule
+### Rule 2 
 
 A concept may also be considered an entity when it represents a business record that must be tracked over time.
 
@@ -87,27 +87,7 @@ These are not physical objects but are still valid business entities because the
 
 ---
 
-### Rule 3 — Independent Lifecycle Rule
-
-A concept is likely an entity if it has its own lifecycle or state transitions.
-
-Examples:
-
-Booking
-
-Pending → Approved → Checked In → Completed → No Show → Cancelled
-
-Maintenance Record
-
-Reported → Assigned → In Progress → Completed
-
-Lifecycle states themselves are not entities.
-
-The business record that owns the lifecycle is the entity.
-
----
-
-### Rule 4 — Description Rule
+### Rule 3
 
 Information that merely describes another object is not an entity.
 
@@ -125,7 +105,7 @@ Examples:
 
 ---
 
-### Rule 5 — Enumeration Rule
+### Rule 4
 
 Classification values and status values are not entities.
 
@@ -144,9 +124,9 @@ These should be treated as attribute values unless the requirements explicitly i
 
 ---
 
-### Rule 6 — Relationship-Only Rule
+### Rule 5 
 
-Do not create entities for concepts that merely express a connection between two business objects.
+If theses entities represent workflow stages and contain information, don't merge them. Do not create entities for concepts that merely express a connection between two business objects with only connection meaning. 
 
 Examples:
 
@@ -160,35 +140,24 @@ The decision to create associative entities belongs to later design stages.
 
 ---
 
-## Workflow Aggregation Rules
+### Rule 6
 
-### Rule 7 — Single Process Aggregation
+When determining whether a concept should be merged into another entity or modeled separately, evaluate whether the concept represents business information owned or produced by a different actor.
 
-Do not create separate entities for concepts that merely represent state transitions, lifecycle stages, or operational actions within another business entity.
+A concept should not automatically be treated as a workflow step merely because it occurs within the lifecycle of another entity.
 
-Examples:
+Indicators that a concept may deserve separate consideration include:
 
-* Check In
-* Check Out
-* Completion
-* Assignment
-* Status Change
-
-These concepts describe actions performed on a business entity rather than business entities themselves.
-
----
-
-### Important Distinction
-
-A concept should NOT be consolidated merely because it occurs within the same business process.
-
-Business process membership alone is not sufficient to eliminate an entity if they represent distinct business records with their own information, history, actors, or audit requirements.
+* The information is created or maintained by a different business role.
+* The information records a decision, assessment, approval, verification, inspection, or operational activity performed by another actor.
+* The information has its own business meaning independent of the parent entity.
+* The information may reasonably be audited, reviewed, or reported separately.
 
 ---
 
 ## Attribute Identification Rules
 
-### Rule 8 — Descriptive Attribute Rule
+### Rule 7
 
 An attribute should describe a property of an entity.
 
@@ -211,7 +180,7 @@ Space
 
 ---
 
-### Rule 9 — Exclude Relationship Information
+### Rule 8 
 
 Do not classify references to other business objects as attributes.
 
@@ -227,7 +196,7 @@ These indicate relationships and should be handled later.
 
 ---
 
-### Rule 10 — Atomic Business Information Rule
+### Rule 9
 
 Attributes should represent a single piece of business information whenever practical.
 

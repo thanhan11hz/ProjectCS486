@@ -28,15 +28,16 @@ The output will be used as input for database implementation.
 
 ## Required Input Files
 
-Read:
+Read the following files:
 
-* `docs/02-erd-design.md`
+* `outputs/01-business-requirement-analysis-G7.md`
+* `outputs/02-erd-design-G7.md`
 
-If available, also read:
+If an existing analysis already exists, also read:
 
-* `docs/01-business-requirement-analysis.md`
+* `outputs/03-logical-design-G7.md`
 
-Do not read unrelated files.
+Do not read unrelated files unless explicitly requested.
 
 ---
 
@@ -44,7 +45,8 @@ Do not read unrelated files.
 
 The following file must exist:
 
-* `docs/02-erd-design.md`
+* `docs/01-business-requirement-analysis-G7.md`
+* `docs/02-erd-design-G7.md`
 
 If missing:
 
@@ -65,132 +67,9 @@ If missing:
 
 ---
 
-## Methodology
+## Execution process
 
-### 1. Map Strong Entities
 
-Create one relation for each strong entity.
-
-For each relation:
-
-* Relation name
-* Attributes
-* Primary Key
-
-### 2. Map Weak Entities
-
-Create a relation for each weak entity.
-
-Include:
-
-* Partial key
-* Owner entity key
-* Composite primary key
-
-### 3. Map 1:1 Relationships
-
-Choose the most appropriate relation to receive the foreign key.
-
-Document the design decision.
-
-### 4. Map 1:N Relationships
-
-Place the foreign key on the N-side relation.
-
-### 5. Map M:N Relationships
-
-Create an associative relation.
-
-Include:
-
-* Foreign keys from participating relations
-* Relationship attributes
-* Composite primary key when appropriate
-
-### 6. Map Multivalued Attributes
-
-Create a separate relation.
-
-### 7. Map Composite Attributes
-
-Decompose into atomic attributes.
-
-### 8. Identify Candidate Keys
-
-Document all meaningful candidate keys.
-
-### 9. Define Integrity Constraints
-
-Identify:
-
-* Entity integrity
-* Referential integrity
-* Key constraints
-
----
-
-## Design Rules
-
-### General Rules
-
-The logical model must remain DBMS-independent.
-
-Do not include:
-
-* SQL syntax
-* CREATE TABLE statements
-* Data types
-* CHECK constraints
-* Triggers
-* Views
-
-### Relation Rules
-
-Every relation must have:
-
-* Name
-* Attributes
-* Primary key
-
-### Key Rules
-
-Every relation must have:
-
-* Primary Key
-
-Candidate Keys should be documented when known.
-
-### Foreign Key Rules
-
-Every relationship must be represented through:
-
-* Foreign key
-* Associative relation
-
-as appropriate.
-
-### Relationship Mapping Rules
-
-1:1 relationships:
-
-* Implement using foreign keys.
-
-1:N relationships:
-
-* Foreign key on N-side.
-
-M:N relationships:
-
-* Associative relation required.
-
-### Attribute Rules
-
-Attributes should be:
-
-* Atomic
-* Non-repeating
-
-Composite attributes must be decomposed.
 
 ---
 
@@ -198,13 +77,13 @@ Composite attributes must be decomposed.
 
 Create or update:
 
-`docs/03-logical-design.md`
+`outputs/03-logical-design-G7.md`
 
-The output must follow:
+The document must follow the template:
 
 `.opencode/skills/logical-design/logical-design-template.md`
 
-Do not omit required sections.
+Do not omit any required section.
 
 ---
 
@@ -227,7 +106,7 @@ Before saving:
 
 ## Error Handling
 
-If the conceptual ERD is missing:
+If `outputs/01-business-requirement-analysis-G7.md` and `outputs/02-erd-design-G7.md` do not exist:
 
 * Stop execution.
 * Report the missing file.

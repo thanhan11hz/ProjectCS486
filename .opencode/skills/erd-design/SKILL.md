@@ -1,9 +1,8 @@
 ---
-
 name: conceptual-design
 description: Transform business requirement analysis into a conceptual ERD using Chen's notation represented with Mermaid Flowchart
 compatibility: opencode
------------------------
+---
 
 # Conceptual ERD Design Skill
 
@@ -25,15 +24,15 @@ The output will be used as input for logical database design.
 
 ## Required Input Files
 
-Read:
+Read the following files:
 
-* `docs/01-business-requirement-analysis.md`
+* `outputs/01-business-requirement-analysis-G7.md`
 
-If available, also read:
+If an existing analysis already exists, also read:
 
-* `req/business-requirement.md`
+* `outputs/02-erd-design-G7.md`
 
-Do not read unrelated files.
+Do not read unrelated files unless explicitly requested.
 
 ---
 
@@ -41,7 +40,7 @@ Do not read unrelated files.
 
 The following file must exist:
 
-* `docs/01-business-requirement-analysis.md`
+* `docs/01-business-requirement-analysis-G7.md`
 
 If the file is missing:
 
@@ -62,137 +61,197 @@ If the file is missing:
 
 ---
 
-## Methodology
+## Execution process
 
-### 1. Create Entity Set Definitions
+### Step 1 — Load Business Analysis
 
-For each entity:
+Read:
 
-* Entity name
-* Description
-* Candidate identifier
+`outputs/01-business-requirement-analysis-G7.md`
 
-### 2. Create Attribute Definitions
+Extract the finalized business model, including:
 
-Identify:
+* Accepted Entities
+* Entity Attributes
+* Relationships
+* Cardinalities
+* Participation Constraints
+* Conflict Resolution Decisions
 
-* Key attributes
-* Simple attributes
-* Composite attributes
-* Multivalued attributes
-* Derived attributes
+The Business Analysis is considered the authoritative source for conceptual modeling decisions.
 
-when applicable.
-
-### 3. Create Relationship Definitions
-
-For each relationship:
-
-* Relationship name
-* Participating entities
-* Relationship meaning
-
-### 4. Determine Cardinalities
-
-Determine:
-
-* 1:1
-* 1:N
-* M:N
-
-for every relationship.
-
-### 5. Determine Participation Constraints
-
-Determine whether participation is:
-
-* Total
-* Partial
-
-for each participating entity.
-
-### 6. Validate Conceptual Consistency
-
-Ensure:
-
-* Every relationship connects valid entities.
-* Every attribute belongs to an entity or relationship.
-* Every entity participates in at least one relationship unless justified.
+Do not re-analyze the original requirements unless required information is missing.
 
 ---
 
-## Design Rules
+### Step 2 — Validate Model Consistency
 
-### Conceptual Modeling Rules
+Review the extracted model and verify that:
 
-The ERD must remain technology-independent.
+* Every relationship references valid entities.
+* Every attribute belongs to a valid entity.
+* Cardinalities are defined for major relationships.
+* Participation constraints are available when known.
+* Modeling decisions are internally consistent.
 
-Do not include:
+If inconsistencies are detected:
 
-* Foreign keys
-* Tables
-* SQL data types
-* Physical implementation details
-* Database constraints
-
-### Entity Rules
-
-Entities must represent:
-
-* People
-* Places
-* Objects
-* Events
-* Concepts
-
-with independent business meaning.
-
-### Attribute Rules
-
-Attributes must describe entities.
-
-Do not model identifiers as foreign keys.
-
-Primary identifiers may be marked for clarity.
-
-### Relationship Rules
-
-Relationships must:
-
-* Have meaningful names
-* Use verbs when possible
-* Connect entities only
-
-### Cardinality Rules
-
-Every relationship must include cardinality information.
-
-### Participation Rules
-
-Indicate:
-
-* Total participation
-* Partial participation
-
-when known from requirements.
+* Record the issue.
+* Apply the documented decision from the Business Analysis.
+* Do not introduce new entities, attributes, or relationships unless no alternative exists.
 
 ---
 
-## Output Specification
+### Step 3 — Prepare Conceptual ERD Components
 
-Create or update:
+Construct ERD components directly from the validated business model.
 
-`docs/02-erd-design.md`
+### Entities
 
-The document must contain:
+Use only entities accepted in the Business Analysis.
 
-### Conceptual ERD Description
+Do not create additional entities.
 
-* Entity definitions
-* Attribute definitions
-* Relationship definitions
-* Cardinality analysis
-* Participation analysis
+---
+
+### Attributes
+
+Attach attributes to the entity defined in the Business Analysis.
+
+Do not introduce implementation-specific attributes.
+
+---
+
+### Relationships
+
+Use relationships exactly as defined in the Business Analysis.
+
+Relationship names should preserve the business meaning identified during analysis.
+
+---
+
+### Cardinalities
+
+Use cardinalities defined in the Business Analysis.
+
+If a cardinality is missing:
+
+* Derive the most reasonable interpretation from the available analysis.
+* Document the assumption.
+
+---
+
+### Participation Constraints
+
+Use participation constraints defined in the Business Analysis.
+
+If participation cannot be determined confidently:
+
+* Document the assumption.
+* Record the justification.
+
+---
+
+### Step 4 — Generate Conceptual ERD Description
+
+Create structured descriptions for:
+
+### Entities
+
+Describe the purpose of each entity.
+
+### Attributes
+
+List major attributes associated with each entity.
+
+### Relationships
+
+Describe the business meaning of each relationship.
+
+### Cardinalities
+
+Describe relationship multiplicities.
+
+### Participation Constraints
+
+Describe mandatory and optional participation where known.
+
+---
+
+### Step 5 — Generate Conceptual ERD Diagram
+
+Transform the conceptual model into a Chen-style ERD using Mermaid Flowchart.
+
+Represent:
+
+```text
+Entity → Rectangle
+
+Attribute → Oval
+
+Relationship → Diamond
+```
+
+Use:
+
+```mermaid
+flowchart LR
+```
+
+Do not use:
+
+```mermaid
+erDiagram
+```
+
+because Mermaid ERD notation represents logical modeling rather than conceptual Chen notation.
+
+Do not introduce new entities, attributes, or relationships during diagram generation.
+
+---
+
+### Step 6 — Validate ERD Completeness
+
+Verify that:
+
+* Every accepted entity appears in the diagram.
+* Every major attribute appears in the diagram.
+* Every relationship appears in the diagram.
+* Every relationship includes cardinality information.
+* Participation constraints are documented when available.
+* No rejected candidate appears as an entity.
+* No primary keys are shown.
+* No foreign keys are shown.
+* No relational schema concepts are included.
+* Mermaid syntax is valid.
+* Mermaid Flowchart notation is used.
+
+Record any assumptions made during ERD generation.
+
+---
+
+## Important rules
+
+### Scope Restrictions Rules
+
+This stage is not responsible for:
+
+* Relational schema design
+* Primary key selection
+* Foreign key identification
+* SQL design
+* Table normalization
+* Constraint implementation
+
+Those activities belong to later stages.
+
+### Example Usage Rules
+
+Examples used in this skill are illustrative only.
+
+Do not reuse example entities, actors, activities, or business rules from the examples.
+
+Always derive results exclusively from the provided business requirements.
 
 ### Conceptual ERD Diagram
 
@@ -247,6 +306,20 @@ Registers -- "N" --- Course
 
 ---
 
+## Output Specification
+
+Create or update:
+
+`outputs/02-erd-design-G7.md`
+
+The document must follow the template:
+
+`.opencode/skills/erd-design/erd-design-template.md`
+
+Do not omit any required section.
+
+---
+
 ## Validation Checklist
 
 Before saving:
@@ -266,7 +339,7 @@ Before saving:
 
 ## Error Handling
 
-If the business analysis document is missing:
+If `outputs/01-business-requirement-analysis-G7.md` does not exist:
 
 * Stop execution.
 * Report the missing file.

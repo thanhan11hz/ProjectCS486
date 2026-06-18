@@ -1,139 +1,122 @@
 # Conceptual ERD Design
 
-## 1. Design Overview
+## 1. Entity Definitions
 
-### Scope
-
-[Describe the scope of the conceptual model.]
-
-### Source Documents
-
-* Business Requirement Analysis
+| Entity | Description |
+| ------ | ----------- |
+|        |             |
 
 ---
 
-## 2. Entity Definitions
+## 2. Attributes 
 
 ### Entity: [Entity Name]
 
-**Description**
-
-[Entity description]
-
-**Identifier**
-
-[Candidate identifier]
-
----
+| Attribute | Description | Notes |
+| --------- | ----------- | ----- |
+|           |             |       |
 
 Repeat for every entity.
 
 ---
 
-## 3. Attribute Definitions
+## 4. Relationships
 
-### Entity: [Entity Name]
+| Relationship | Degree | Relationship Attributes | Participating Entities | Description |
+| ------------ | ------ | ----------------------- | ---------------------- | ----------- |
+|              |        |                         |                        |             |
 
-| Attribute | Type | Notes |
-| --------- | ---- | ----- |
-|           |      |       |
-
-Possible notes:
-
-* Identifier
-* Composite
-* Multivalued
-* Derived
 
 ---
 
-Repeat for every entity.
+## 4. Cardinality and Participation Summary
+
+| Relationship | Cardinality | Participation | 
+| ------------ | ----------- | ------------- |
+|              |             |               |        
 
 ---
 
-## 4. Relationship Definitions
-
-| Relationship | Entities | Description |
-| ------------ | -------- | ----------- |
-|              |          |             |
-
----
-
-## 5. Cardinality Analysis
-
-| Relationship | Cardinality |
-| ------------ | ----------- |
-|              |             |
-
-Examples:
-
-* User (1) — (N) Booking
-* Booking (1) — (1) Approval
-* Space (1) — (N) Maintenance
-
----
-
-## 6. Participation Constraints
-
-| Relationship | Entity | Participation   |
-| ------------ | ------ | --------------- |
-|              |        | Total / Partial |
-
----
-
-## 7. Conceptual ERD Diagram
+## 5. Conceptual ERD Diagram
 
 ```mermaid
 flowchart LR
 
+%% =========================
 %% Entities
+%% =========================
 
-Entity1[Entity1]
-Entity2[Entity2]
+%% Example:
+%% User[User]
 
+%% =========================
 %% Attributes
+%% =========================
 
-Attribute1((attribute1))
-Attribute2((attribute2))
+%% Example:
+%% UserID((user_id))
+%% FullName((full_name))
 
+%% =========================
 %% Relationships
+%% =========================
 
-Relationship1{Relationship}
+%% Example:
+%% Submits{Submits}
 
-%% Connections
+%% =========================
+%% Entity-Attribute Links
+%% =========================
 
-Entity1 --- Attribute1
-Entity2 --- Attribute2
+%% Example:
+%% User --- UserID
+%% User --- FullName
 
-Entity1 -- "1" --- Relationship1
-Relationship1 -- "N" --- Entity2
+%% =========================
+%% Relationship Links
+%% =========================
+
+%% Example:
+%% User -- "1..N" --- Submits
+%% Submits -- "1" --- Booking
+
 ```
 
 ---
 
-## 8. Design Decisions
+## 6. ERD Validation
 
-| ID    | Decision | Justification |
-| ----- | -------- | ------------- |
-| DD-01 |          |               |
+### Entity Coverage
+
+* [ ] Every accepted entity appears in the ERD.
+* [ ] No rejected candidate appears as an entity.
+
+### Attribute Coverage
+
+* [ ] Every major attribute appears in the ERD.
+
+### Relationship Coverage
+
+* [ ] Every relationship appears in the ERD.
+* [ ] Every relationship includes cardinality information.
+
+### Participation Coverage
+
+* [ ] Participation constraints are documented where known.
+
+### Conceptual Modeling Compliance
+
+* [ ] No primary keys shown.
+* [ ] No foreign keys shown.
+* [ ] No junction tables shown.
+* [ ] No SQL concepts shown.
+* [ ] Chen notation semantics preserved.
+
+### Diagram Validation
+
+* [ ] Mermaid syntax is valid.
+* [ ] Mermaid Flowchart notation is used.
+* [ ] Mermaid ERD notation is not used.
 
 ---
 
-## 9. Assumptions and Ambiguities
-
-| ID    | Description | Resolution |
-| ----- | ----------- | ---------- |
-| AM-01 |             |            |
-
----
-
-## 10. Validation Summary
-
-* [ ] All entities represented
-* [ ] All relationships represented
-* [ ] Cardinalities defined
-* [ ] Participation constraints defined
-* [ ] Mermaid Flowchart used
-* [ ] Chen notation represented
-* [ ] No foreign keys shown
-* [ ] No SQL implementation details shown
