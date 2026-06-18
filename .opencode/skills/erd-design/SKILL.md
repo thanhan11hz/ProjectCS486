@@ -26,7 +26,7 @@ The output will be used as input for logical database design.
 
 Read the following files:
 
-* `outputs/01-business-requirement-analysis-G7.md`
+* `outputs/01-business-req-analysis-G7.md`
 
 If an existing analysis already exists, also read:
 
@@ -67,7 +67,7 @@ If the file is missing:
 
 Read:
 
-`outputs/01-business-requirement-analysis-G7.md`
+`outputs/01-business-req-analysis-G7.md`
 
 Extract the finalized business model, including:
 
@@ -339,7 +339,7 @@ Before saving:
 
 ## Error Handling
 
-If `outputs/01-business-requirement-analysis-G7.md` does not exist:
+If `outputs/01-business-req-analysis-G7.md` does not exist:
 
 * Stop execution.
 * Report the missing file.

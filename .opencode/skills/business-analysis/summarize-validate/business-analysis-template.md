@@ -2,112 +2,211 @@
 
 ## 1. Business Purpose
 
-### Problem Statement
+### Primary Goal
 
-[Describe the business problem.]
+<Describe the primary business objective of the system.>
 
-### System Purpose
+### Business Problems Addressed
 
-[Describe the purpose of the proposed database system.]
+- Problem 1
+- Problem 2
+- Problem 3
 
 ### Expected Outcomes
 
-[List the expected business outcomes.]
+- Benefit 1
+- Benefit 2
+- Benefit 3
 
 ---
 
-## 2. Actors
+## 2. Business Scope
 
-| Actor | Actor type | Description | Responsibilities |
-| ----- | ---------- | ----------- | ---------------- |
-|       |            |             |                  |
+### In Scope
 
----
+- Scope item 1
+- Scope item 2
+- Scope item 3
 
-## 3. Entities
+### Out of Scope
 
-| Entity | Description | Justification |
-| ------ | ----------- | ------------- |
-|        |             |               |
-
----
-
-## 4. Relationships
-
-| Relationship | Degree | Relationship Attributes | Participating Entities | Description |
-| ------------ | ------ | ----------------------- | ---------------------- | ----------- |
-|              |        |                         |                        |             |
+- Out-of-scope item 1
+- Out-of-scope item 2
 
 ---
 
-## 5. Attributes 
+## 3. Actors
 
-### Entity: [Entity Name]
-
-| Attribute | Description | Notes |
-| --------- | ----------- | ----- |
-|           |             |       |
-
-Repeat for every entity.
+| Actor | Description | Responsibilities |
+|---------|-------------|------------------|
+| Actor A | Description | Responsibilities |
+| Actor B | Description | Responsibilities |
 
 ---
 
-## 6. Cardinalities
+## 4. Entity Catalog
 
-| Relationship | Cardinality | Justification |
-| ------------ | ----------- | ------------- |
-|              |             |               |               |
+### Entity: Entity Name
 
-Examples:
+**Description**
 
-* User (1) —— (N) Booking
-* Space (1) —— (N) Booking
-* Booking (1) —— (1) Approval
+<Business meaning of the entity>
 
----
+**Attributes**
 
-## 7. Business Rules
-
-### Explicit Business Rules
-
-| Rule ID | Rule |
-| ------- | ---- |
-| BR-01   |      |
-| BR-02   |      |
-
-### Derived Business Rules
-
-| Rule ID | Rule |
-| ------- | ---- |
-| DR-01   |      |
-| DR-02   |      |
+| Attribute | Description |
+|------------|------------|
+| Attribute A | Description |
+| Attribute B | Description |
 
 ---
 
-## 8. Assumptions and Ambiguities
+### Entity: Entity Name
 
-### Assumptions
+**Description**
 
-| ID   | Assumption |
-| ---- | ---------- |
-| A-01 |            |
+<Business meaning of the entity>
 
-### Ambiguities
+**Attributes**
 
-| ID    | Requirement Area | Possible Interpretations | Selected Interpretation | Justification |
-| ----- | ---------------- | ------------------------ | ----------------------- | ------------- |
-| AM-01 |                  |                          |                         |               |
+| Attribute | Description |
+|------------|------------|
+| Attribute A | Description |
+| Attribute B | Description |
+
+---
+
+## 5. Relationship Catalog
+
+| Relationship | Source Entity | Target Entity | Cardinality | Description |
+|--------------|--------------|--------------|-------------|-------------|
+| Relationship Name | Entity A | Entity B | 1:N | Description |
+
+---
+
+### Relationship Attributes
+
+| Relationship | Attribute | Description |
+|--------------|-----------|-------------|
+| Relationship Name | Attribute | Description |
+
+(If applicable)
+
+---
+
+## 6. Business Rules
+
+### Entity Rules
+
+| ID | Rule |
+|----|------|
+| BR-01 | Rule statement |
+| BR-02 | Rule statement |
+
+---
+
+### Relationship Rules
+
+| ID | Rule |
+|----|------|
+| BR-03 | Rule statement |
+| BR-04 | Rule statement |
+
+---
+
+### Status and Lifecycle Rules
+
+| ID | Rule |
+|----|------|
+| BR-05 | Rule statement |
+| BR-06 | Rule statement |
+
+---
+
+### Temporal Rules
+
+| ID | Rule |
+|----|------|
+| BR-07 | Rule statement |
+| BR-08 | Rule statement |
+
+---
+
+### Validation and Consistency Rules
+
+| ID | Rule |
+|----|------|
+| BR-09 | Rule statement |
+| BR-10 | Rule statement |
+
+---
+
+## 7. Assumptions
+
+| ID | Assumption |
+|----|------------|
+| A-01 | Assumption |
+| A-02 | Assumption |
+
+---
+
+## 8. Ambiguities
+
+| ID | Requirement Area | Description |
+|----|------------------|-------------|
+| AM-01 | Area | Description |
+| AM-02 | Area | Description |
 
 ---
 
 ## 9. Validation Summary
 
-* [ ] Business purpose identified
-* [ ] Actors identified
-* [ ] Entities identified
-* [ ] Attributes identified
-* [ ] Relationships identified
-* [ ] Cardinalities identified
-* [ ] Business rules identified
-* [ ] Assumptions documented
-* [ ] Ambiguities documented
+### Coverage Summary
+
+| Area | Status |
+|--------|--------|
+| Business Purpose | Complete |
+| Actors | Complete |
+| Entities | Complete |
+| Relationships | Complete |
+| Business Rules | Complete |
+
+---
+
+### Validation Findings
+
+#### Duplicates Removed
+
+- None
+
+#### Inconsistencies Found
+
+- None
+
+#### Unresolved Issues
+
+- None
+
+---
+
+## 10. Final Analysis Summary
+
+### Total Actors
+
+<number>
+
+### Total Entities
+
+<number>
+
+### Total Relationships
+
+<number>
+
+### Total Business Rules
+
+<number>
+
+### Readiness Assessment
+
+The business requirement analysis is complete and suitable as input for Conceptual ERD Design.

@@ -353,7 +353,7 @@ Create or update:
 
 The document must follow the template:
 
-`.opencode/skills/business-analysis/derive-relationship-template.md`
+`.opencode/skills/business-analysis/derive-relationship/derive-relationship-template.md`
 
 Do not omit any required section.
 

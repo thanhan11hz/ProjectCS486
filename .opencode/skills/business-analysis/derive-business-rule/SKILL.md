@@ -320,7 +320,7 @@ Create or update:
 
 The document must follow the template:
 
-`.opencode/skills/business-analysis/derive-business-rule-template.md`
+`.opencode/skills/business-analysis/derive-business-rule/derive-business-rule-template.md`
 
 Do not omit any required section.
 

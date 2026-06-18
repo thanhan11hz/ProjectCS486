@@ -328,7 +328,7 @@ Create or update:
 
 The document must follow the template:
 
-`.opencode/skills/business-analysis/derive-entity-att-template.md`
+`.opencode/skills/business-analysis/derive-entity-att/derive-entity-att-template.md`
 
 Do not omit any required section.
 

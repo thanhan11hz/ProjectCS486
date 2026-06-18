@@ -256,7 +256,7 @@ Create or update:
 
 The document must follow the template:
 
-`.opencode/skills/business-analysis/understand-req-template.md`
+`.opencode/skills/business-analysis/understand-req/understand-req-template.md`
 
 Do not omit any required section.
 
