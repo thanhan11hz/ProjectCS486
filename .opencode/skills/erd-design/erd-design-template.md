@@ -22,9 +22,9 @@ Repeat for every entity.
 
 ## 4. Relationships
 
-| Relationship | Degree | Relationship Attributes | Participating Entities | Description |
-| ------------ | ------ | ----------------------- | ---------------------- | ----------- |
-|              |        |                         |                        |             |
+| Relationship |  Degree  | Relationship Attributes | Participating Entities | Description |
+| ------------ |  Binary  | ----------------------- | ---------------------- | ----------- |
+|              |  Ternary |                         |                        |             |
 
 
 ---

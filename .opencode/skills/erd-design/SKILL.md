@@ -40,7 +40,7 @@ Do not read unrelated files unless explicitly requested.
 
 The following file must exist:
 
-* `docs/01-business-requirement-analysis-G7.md`
+* `outputs/01-business-requirement-analysis-G7.md`
 
 If the file is missing:
 

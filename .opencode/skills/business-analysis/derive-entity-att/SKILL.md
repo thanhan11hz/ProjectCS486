@@ -4,7 +4,7 @@ description: Derive candidate entities and attributes from classified concepts b
 compatibility: opencode
 ---
 
-# Business Requirement Understanding Skill
+# Entity & Attributes Identification Skill
 
 ## Objective
 
