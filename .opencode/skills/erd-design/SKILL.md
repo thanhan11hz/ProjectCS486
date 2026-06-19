@@ -18,6 +18,12 @@ The conceptual ERD must represent:
 * Cardinalities
 * Participation constraints
 
+Additionally, the conceptual model must classify:
+
+* Strong and Weak Entities
+* Identifying and Non-identifying Relationships
+* Attribute Types
+
 The output will be used as input for logical database design.
 
 ---
@@ -40,7 +46,7 @@ Do not read unrelated files unless explicitly requested.
 
 The following file must exist:
 
-* `outputs/01-business-requirement-analysis-G7.md`
+* `outputs/01-business-req-analysis-G7.md`
 
 If the file is missing:
 
@@ -51,42 +57,215 @@ If the file is missing:
 
 ## Discovery Process
 
-1. Read the business analysis document completely.
-2. Identify all entities.
-3. Identify all attributes.
-4. Identify all relationships.
-5. Identify cardinalities.
-6. Identify participation constraints.
-7. Resolve any inconsistencies before generating the ERD.
+1. Read the Business Requirement Analysis completely.
+2. Extract the approved conceptual model.
+3. Validate entity, attribute, and relationship consistency.
+4. Classify entities.
+5. Classify attributes.
+6. Classify relationships.
+7. Determine cardinalities.
+8. Determine participation constraints.
+9. Generate conceptual ERD documentation.
+10. Generate Chen-style ERD diagram.
+
+---
+
+# Conceptual Modeling Rules
+
+## Entity Classification Rules
+
+### Rule E1 — Strong Entity
+
+An entity is a Strong Entity when:
+
+* It possesses its own identity.
+* It can be uniquely identified independently.
+* Its existence does not depend on another entity.
+
+Examples:
+
+```text
+User
+Space
+Booking
+Maintenance Record
+```
+
+---
+
+### Rule E2 — Weak Entity
+
+An entity is a Weak Entity when:
+
+* It cannot be uniquely identified without another entity.
+* Its existence depends on an owner entity.
+* It participates in an identifying relationship.
+
+Examples:
+
+```text
+Order Item
+Booking Participant
+Invoice Line
+```
+
+---
+
+## Relationship Classification Rules
+
+### Rule R1 — Identifying Relationship
+
+A relationship is Identifying when:
+
+* It connects a weak entity to its owner entity.
+* The owner contributes to the identity of the weak entity.
+
+---
+
+### Rule R2 — Non-identifying Relationship
+
+A relationship is Non-identifying when:
+
+* Both entities possess independent identity.
+* The relationship does not contribute to entity identification.
+
+---
+
+## Attribute Classification Rules
+
+### Rule A1 — Key Attribute
+
+An attribute is a Key Attribute when:
+
+* It uniquely identifies an entity occurrence.
+
+Examples:
+
+```text
+user_id
+space_code
+booking_id
+```
+
+---
+
+### Rule A2 — Composite Attribute
+
+An attribute is Composite when:
+
+* It can be meaningfully decomposed into subattributes.
+
+Examples:
+
+```text
+full_name
+address
+```
+
+---
+
+### Rule A3 — Multivalued Attribute
+
+An attribute is Multivalued when:
+
+* Multiple values may exist for a single entity occurrence.
+
+Examples:
+
+```text
+phone_numbers
+skills
+facilities
+```
+
+---
+
+### Rule A4 — Derived Attribute
+
+An attribute is Derived when:
+
+* Its value can be calculated from other stored data.
+
+Examples:
+
+```text
+age
+booking_duration
+maintenance_duration
+```
+
+---
+
+### Rule A5 — Simple Attribute
+
+An attribute is Simple when:
+
+* It is atomic.
+* It cannot be meaningfully decomposed.
+
+Examples:
+
+```text
+email
+capacity
+status
+```
+
+---
+
+## Cardinality Rules
+
+Use cardinalities defined in the Business Analysis whenever available.
+
+If cardinalities are missing:
+
+* Infer the most reasonable interpretation.
+* Record the assumption and justification.
+
+---
+
+## Participation Rules
+
+### Total Participation
+
+The entity must participate in the relationship.
+
+---
+
+### Partial Participation
+
+The entity may exist without participating in the relationship.
 
 ---
 
 ## Execution process
 
-### Step 1 — Load Business Analysis
+Perform the following steps in order.
 
-Read:
+## Step 1 — Load Business Analysis
 
-`outputs/01-business-req-analysis-G7.md`
+Read: `outputs/01-business-req-analysis-G7.md`
 
-Extract the finalized business model, including:
+Extract:
 
 * Accepted Entities
 * Entity Attributes
 * Relationships
 * Cardinalities
 * Participation Constraints
+* Business Rules
+* Assumptions
 * Conflict Resolution Decisions
 
-The Business Analysis is considered the authoritative source for conceptual modeling decisions.
+Treat the Business Analysis as the authoritative source.
 
-Do not re-analyze the original requirements unless required information is missing.
+Do not re-discover entities or relationships unless required information is missing.
 
 ---
 
-### Step 2 — Validate Model Consistency
+## Step 2 — Validate Model Consistency
 
-Review the extracted model and verify that:
+Verify that:
 
 * Every relationship references valid entities.
 * Every attribute belongs to a valid entity.
@@ -94,139 +273,150 @@ Review the extracted model and verify that:
 * Participation constraints are available when known.
 * Modeling decisions are internally consistent.
 
-If inconsistencies are detected:
+If inconsistencies are found:
 
 * Record the issue.
-* Apply the documented decision from the Business Analysis.
-* Do not introduce new entities, attributes, or relationships unless no alternative exists.
+* Apply documented conflict-resolution decisions.
+* Avoid introducing new modeling elements whenever possible.
 
 ---
 
-### Step 3 — Prepare Conceptual ERD Components
+## Step 3 — Classify Entities
 
-Construct ERD components directly from the validated business model.
+For every accepted entity:
 
-### Entities
+Determine:
 
-Use only entities accepted in the Business Analysis.
+* Strong Entity
+* Weak Entity
 
-Do not create additional entities.
+Apply the Entity Classification Rules.
 
----
+Record:
 
-### Attributes
-
-Attach attributes to the entity defined in the Business Analysis.
-
-Do not introduce implementation-specific attributes.
+* Classification
+* Justification
 
 ---
 
-### Relationships
+## Step 4 — Classify Attributes
 
-Use relationships exactly as defined in the Business Analysis.
+For every attribute:
 
-Relationship names should preserve the business meaning identified during analysis.
+Determine whether it is:
 
----
+* Key Attribute
+* Simple Attribute
+* Composite Attribute
+* Multivalued Attribute
+* Derived Attribute
 
-### Cardinalities
+Apply the Attribute Classification Rules.
 
-Use cardinalities defined in the Business Analysis.
+Record:
 
-If a cardinality is missing:
+* Classification
+* Justification
 
-* Derive the most reasonable interpretation from the available analysis.
-* Document the assumption.
+## Step 5 — Classify Relationships
 
----
+For every relationship:
 
-### Participation Constraints
+Determine whether it is:
 
-Use participation constraints defined in the Business Analysis.
+* Identifying Relationship
+* Non-identifying Relationship
 
-If participation cannot be determined confidently:
+Apply the Relationship Classification Rules.
 
-* Document the assumption.
-* Record the justification.
+Record:
 
----
-
-### Step 4 — Generate Conceptual ERD Description
-
-Create structured descriptions for:
-
-### Entities
-
-Describe the purpose of each entity.
-
-### Attributes
-
-List major attributes associated with each entity.
-
-### Relationships
-
-Describe the business meaning of each relationship.
-
-### Cardinalities
-
-Describe relationship multiplicities.
-
-### Participation Constraints
-
-Describe mandatory and optional participation where known.
+* Classification
+* Justification
 
 ---
 
-### Step 5 — Generate Conceptual ERD Diagram
+## Step 6 — Validate Cardinalities and Participation
 
-Transform the conceptual model into a Chen-style ERD using Mermaid Flowchart.
+Review:
+
+* Relationship cardinalities
+* Participation constraints
+
+If information is missing:
+
+* Make a justified assumption.
+* Record the assumption.
+
+## Step 7 — Generate Conceptual ERD Description
+
+Produce:
+
+### Entity Classification
+
+### Attribute Classification
+
+### Relationship Classification
+
+### Entity Definitions
+
+### Relationship Definitions
+
+### Cardinality Summary
+
+### Participation Summary
+
+### Assumptions
+
+---
+
+## Step 8 — Generate Conceptual ERD Diagram
+
+Transform the classified conceptual model into a Chen-style ERD.
 
 Represent:
 
 ```text
 Entity → Rectangle
 
+Weak Entity → Double Rectangle
+
 Attribute → Oval
 
+Multivalued Attribute → Double Oval
+
+Derived Attribute → Dashed Oval
+
 Relationship → Diamond
+
+Relationship Attribute → Oval
+
+Identifying Relationship → Double Diamond
 ```
-
-Use:
-
-```mermaid
-flowchart LR
-```
-
-Do not use:
-
-```mermaid
-erDiagram
-```
-
-because Mermaid ERD notation represents logical modeling rather than conceptual Chen notation.
 
 Do not introduce new entities, attributes, or relationships during diagram generation.
 
 ---
 
-### Step 6 — Validate ERD Completeness
+## Step 9 — Validate ERD Completeness
 
 Verify that:
 
-* Every accepted entity appears in the diagram.
-* Every major attribute appears in the diagram.
-* Every relationship appears in the diagram.
+* Every accepted entity appears in the ERD.
+* Every major attribute appears.
+* Every relationship appears.
 * Every relationship includes cardinality information.
-* Participation constraints are documented when available.
-* No rejected candidate appears as an entity.
+* Participation constraints are documented.
+* Entity classifications are documented.
+* Attribute classifications are documented.
+* Relationship classifications are documented.
 * No primary keys are shown.
 * No foreign keys are shown.
-* No relational schema concepts are included.
+* No relational schema concepts are shown.
 * Mermaid syntax is valid.
 * Mermaid Flowchart notation is used.
 
-Record any assumptions made during ERD generation.
+Record all assumptions and modeling decisions.
 
 ---
 
@@ -253,56 +443,19 @@ Do not reuse example entities, actors, activities, or business rules from the ex
 
 Always derive results exclusively from the provided business requirements.
 
-### Conceptual ERD Diagram
+### Modeling Consistency Rule
 
-Represent the ERD using:
+The Business Analysis remains the authoritative source.
 
-```mermaid
-flowchart LR
-```
+This stage may classify modeling elements but must not substantially alter the approved business model.
 
-Do NOT use:
+---
 
-```mermaid
-erDiagram
-```
+### Diagram Notation Rule
 
-because Mermaid ERD notation corresponds to logical/crow's-foot modeling rather than conceptual Chen's notation.
+Use Mermaid Flowchart to simulate Chen notation.
 
-Use Mermaid Flowchart to simulate Chen's notation:
-
-* Rectangles for entities
-* Ovals for attributes
-* Diamonds for relationships
-* Labeled edges for cardinalities
-* Labeled edges for participation constraints when needed
-
-Example:
-
-```mermaid
-flowchart LR
-
-Student[Student]
-
-StudentID((student_id))
-StudentName((full_name))
-
-Registers{Registers}
-
-Course[Course]
-
-CourseID((course_id))
-CourseName((course_name))
-
-Student --- StudentID
-Student --- StudentName
-
-Course --- CourseID
-Course --- CourseName
-
-Student -- "M" --- Registers
-Registers -- "N" --- Course
-```
+Do not use Mermaid ERD notation.
 
 ---
 

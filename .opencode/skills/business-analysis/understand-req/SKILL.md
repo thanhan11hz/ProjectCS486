@@ -52,6 +52,8 @@ No prerequisite artifacts are required.
 3. Identify all business objectives, users, activities, constraints, and data requirements.
 4. If an existing analysis document exists, use it only as reference and regenerate the analysis from the business requirements.
 5. Do not assume missing requirements unless necessary.
+6. Identify unclear, incomplete, or conflicting requirements.
+7. Record ambiguities, assumptions, and open questions separately from the main analysis.
 
 ---
 
@@ -224,6 +226,120 @@ Include:
 
 Do not invent future features.
 
+### Step 7: Analyze Ambiguities
+
+Identify requirements that may have multiple valid interpretations.
+
+For each ambiguity:
+
+1. Record the requirement statement.
+2. Explain why the statement is ambiguous.
+3. List all reasonable interpretations supported by the requirement.
+4. Explain the potential impact on later analysis and design activities.
+5. Recommend the most reasonable interpretation while clearly noting that clarification may still be required.
+
+Rules:
+
+* Only analyze ambiguities that originate from the requirement document.
+* Do not invent additional functionality.
+* Do not silently resolve ambiguities.
+* Distinguish ambiguity from missing information.
+* If multiple interpretations are equally valid, document all of them.
+
+Example:
+
+Requirement:
+
+> A booking request may require approval from a facility staff member or manager.
+
+Ambiguity:
+
+Reason:
+The requirement does not specify whether approval is mandatory for all bookings or only certain booking types.
+
+Possible Interpretations:
+
+1. Every booking requires approval.
+2. Only selected booking types require approval.
+
+Impact:
+
+* May change workflow design.
+* May affect lifecycle analysis.
+* May affect later business rule derivation.
+
+Recommended Interpretation:
+
+Approval requirements depend on booking policies and should be clarified with stakeholders.
+
+### Step 8: Analyze Requirement Gaps
+
+Identify information that is missing, incomplete, or insufficiently specified.
+
+#### Assumptions
+
+Document assumptions required to continue analysis.
+
+For each assumption:
+
+* Assumption
+* Supporting evidence
+* Reason for the assumption
+* Risk if the assumption is incorrect
+
+Rules:
+
+* Minimize assumptions whenever possible.
+* Assumptions must be traceable to a gap in the requirement.
+* Clearly distinguish assumptions from facts explicitly stated in the requirement.
+
+Example:
+
+Assumption:
+A user may submit multiple booking requests.
+
+Supporting Evidence:
+No restriction is specified.
+
+Reason:
+Multiple requests are common in space reservation scenarios.
+
+Risk:
+Cardinality and usage policies may change if the assumption is incorrect.
+
+---
+
+#### Open Questions
+
+Document unresolved questions that should be clarified with stakeholders.
+
+For each question:
+
+* Question
+* Related requirement section
+* Why clarification is needed
+* Impact on subsequent analysis if unanswered
+
+Rules:
+
+* Questions must originate from missing, unclear, or conflicting requirements.
+* Do not create speculative questions unrelated to the business requirements.
+* Prioritize questions that may affect business rules, workflows, approval processes, lifecycle behavior, or system scope.
+
+Example:
+
+Question:
+Can an approved booking be modified after approval?
+
+Related Requirement:
+Booking Management
+
+Why Clarification Is Needed:
+The booking lifecycle does not describe post-approval modifications.
+
+Impact:
+May affect workflow analysis, status transitions, and later business rule derivation.
+
 ## Important rules
 
 ### Scope Restrictions Rules
@@ -272,6 +388,10 @@ Before saving the artifact, verify:
 * At least one actor is identified.
 * Every actor has responsibilities.
 * Major business activities are identified.
+* Scope boundaries are documented.
+* Ambiguities are documented.
+* Assumptions are documented.
+* Open questions are documented.
 * No entities are proposed.
 * No relationships are proposed.
 * No business rules are extracted.

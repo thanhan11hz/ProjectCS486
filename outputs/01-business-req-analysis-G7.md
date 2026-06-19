@@ -49,6 +49,7 @@ Develop a database system to manage the booking and usage of shared campus space
 - Public-facing booking portal external to the university.
 - Automated notifications or email reminders.
 - Integration with university course scheduling or timetabling systems.
+- Self-service check-in or check-out by the requester (only facility staff can perform these actions).
 
 ---
 
@@ -309,6 +310,9 @@ A record of a maintenance issue reported for a space, tracking the problem throu
 | A-02 | A booking can have at most one approval decision. |
 | A-03 | A session is always linked to exactly one approved booking. |
 | A-04 | Facility is modeled as an entity rather than a multi-valued attribute to support future equipment tracking. |
+| A-05 | A user may submit multiple booking requests (no explicit limitation specified). |
+| A-06 | Booking lifecycle states follow the sequence: pending, approved/rejected, checked_in, completed/no-show. |
+| A-07 | Facility staff and facility manager roles can both approve bookings and perform check-in/check-out operations (manager inherits staff capabilities). |
 
 ---
 
@@ -320,6 +324,8 @@ A record of a maintenance issue reported for a space, tracking the problem throu
 | AM-02 | User Roles | Can a user have multiple roles? Affects whether role is a single-valued or multi-valued attribute of User. |
 | AM-03 | Booking Modification | Can a booking be modified after submission (e.g., time change) before approval? Affects Booking lifecycle states and whether modification history must be tracked. |
 | AM-04 | Booking Status Transitions | What is the exact set of valid booking statuses and their allowed transitions? Affects data validation rules for Booking.status. |
+| AM-05 | Booking Duration Limits | Is there a maximum duration or advance booking window for booking requests? No restriction is specified in the requirements. |
+| AM-06 | Facility Staff as Requesters | Are facility staff allowed to submit booking requests for themselves, or do they only process requests from others? The actor description does not explicitly state this. |
 
 ---
 
@@ -356,6 +362,7 @@ A record of a maintenance issue reported for a space, tracking the problem throu
 #### Unresolved Issues
 
 - Incident reporting scope (AM-01) remains unresolved — may require clarification from stakeholders on whether this is separate from maintenance records.
+- Booking duration limits (AM-05) and facility staff as requesters (AM-06) are open questions requiring stakeholder input.
 
 ---
 

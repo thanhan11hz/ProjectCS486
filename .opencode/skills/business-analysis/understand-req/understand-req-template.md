@@ -77,3 +77,55 @@
 <!-- Functions, activities, and responsibilities explicitly excluded or not supported by the requirements -->
 
 - 
+
+## 7. Requirement Ambiguities
+
+| Requirement Statement | Reason for Ambiguity | Possible Interpretations | Impact | Recommended Interpretation |
+| --------------------- | -------------------- | ------------------------ | ------ | -------------------------- |
+|                       |                      |                          |        |                            |
+
+---
+
+## 8. Requirement Gaps
+
+### Assumptions
+
+| Assumption | Supporting Evidence | Reason | Risk if Incorrect |
+| ---------- | ------------------- | ------ | ----------------- |
+|            |                     |        |                   |
+
+---
+
+### Open Questions
+
+| Question | Related Requirement | Why Clarification Is Needed | Impact |
+| -------- | ------------------- | --------------------------- | ------ |
+|          |                     |                             |        |
+
+---
+
+## 9. Analysis Notes
+
+### Contradictions
+
+<!-- Record conflicting statements found in the requirements -->
+
+| Conflict | Alternative Interpretations | Selected Interpretation | Justification |
+| -------- | --------------------------- | ----------------------- | ------------- |
+|          |                             |                         |               |
+
+---
+
+### Unresolved Issues
+
+<!-- Items that could not be resolved from the available requirements -->
+
+*
+
+---
+
+### Analyst Comments
+
+<!-- Optional notes that may help later business analysis stages -->
+
+*

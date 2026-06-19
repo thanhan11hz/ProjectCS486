@@ -1,151 +1,224 @@
 # Logical Database Design
 
-## 1. Design Overview
+# 1. Mapping Inventory
 
-### Source Documents
+## Entities
 
-* Business Requirement Analysis
-* Conceptual ERD Design
-
-### Objective
-
-Transform the conceptual ERD into a relational schema.
+| Entity | Type | Identifier |
+|----------|----------|----------|
+| | | |
 
 ---
 
-## 2. Relation Definitions
+## Relationships
 
-### Relation: [Relation Name]
-
-**Description**
-
-[Description]
-
-**Attributes**
-
-| Attribute | Notes |
-| --------- | ----- |
-|           |       |
-
-**Primary Key**
-
-| Attribute |
-| --------- |
-|           |
-
-**Candidate Keys**
-
-| Attribute(s) |
-| ------------ |
-|              |
-
-**Foreign Keys**
-
-| Attribute | References |
-| --------- | ---------- |
-|           |            |
+| Relationship | Cardinality | Attributes |
+|-------------|-------------|-------------|
+| | | |
 
 ---
 
-Repeat for every relation.
+## Special Constructs
+
+### Weak Entities
+
+| Weak Entity | Owner | Partial Key |
+|------------|------------|------------|
+| | | |
+
+### Multivalued Attributes
+
+| Owner | Attribute |
+|---------|---------|
+| | |
+
+### Composite Attributes
+
+| Owner | Attribute |
+|---------|---------|
+| | |
+
+### Recursive Relationships
+
+| Relationship | Entity |
+|-------------|---------|
+| | |
+
+### Specialization Structures
+
+| Supertype | Subtype |
+|-----------|-----------|
+| | |
 
 ---
 
-## 3. Relationship Mapping
+# 2. Entity Mapping
 
-| Conceptual Relationship | Mapping Strategy         | Result |
-| ----------------------- | ------------------------ | ------ |
-|                         | 1:1 FK Mapping           |        |
-|                         | 1:N FK Mapping           |        |
-|                         | M:N Associative Relation |        |
+## Strong Entities
 
----
+| Entity | Relation | PK | Candidate Keys |
+|----------|----------|----------|----------|
+| | | | |
 
-## 4. Relational Schema
+### Decisions
 
-```text
-Relation1(
-    PK attribute1,
-    attribute2,
-    attribute3
-)
-
-Relation2(
-    PK attribute1,
-    FK attribute2 -> Relation1.attribute1,
-    attribute3
-)
-```
+Describe important mapping decisions.
 
 ---
 
-## 5. Crow's Foot Logical Diagram
+## Weak Entities
 
-Represent the logical schema using Mermaid ERD notation.
+| Weak Entity | Relation | PK | FK |
+|------------|------------|------------|------------|
+| | | | |
+
+### Decisions
+
+Describe identifying relationship mappings.
+
+---
+
+# 3. Relationship Mapping
+
+## Binary 1:1 Relationships
+
+| Relationship | Strategy | Result |
+|-------------|-------------|-------------|
+| | | |
+
+### Rationale
+
+---
+
+## Binary 1:N Relationships
+
+| Relationship | FK Placement |
+|-------------|-------------|
+| | |
+
+### Rationale
+
+---
+
+## Binary M:N Relationships
+
+| Relationship | Associative Relation |
+|-------------|-------------|
+| | |
+
+### Rationale
+
+---
+
+## N-ary Relationships
+
+| Relationship | Created Relation |
+|-------------|-------------|
+| | |
+
+### Rationale
+
+---
+
+## Recursive Relationships
+
+| Relationship | Mapping Strategy |
+|-------------|-------------|
+| | |
+
+### Rationale
+
+---
+
+# 4. Special Construct Resolution
+
+## Composite Attributes
+
+| Attribute | Resolution |
+|-----------|-----------|
+| | |
+
+---
+
+## Multivalued Attributes
+
+| Attribute | Relation Created |
+|-----------|-----------|
+| | |
+
+---
+
+## Derived Attributes
+
+| Attribute | Stored | Rationale |
+|-----------|-----------|-----------|
+| | | |
+
+---
+
+## Generalization / Specialization
+
+### Strategy
+
+Describe selected inheritance mapping strategy.
+
+### Rationale
+
+---
+
+# 5. Foreign Key Analysis
+
+| Relation | Foreign Key | References |
+|----------|------------|------------|
+| | | |
+
+### Referential Integrity Summary
+
+---
+
+# 6. Candidate Key Analysis
+
+| Relation | Candidate Key | Justification |
+|----------|----------|----------|
+| | | |
+
+---
+
+# 7. Integrity Constraint Analysis
+
+## Entity Integrity
+
+Describe primary key constraints.
+
+---
+
+## Referential Integrity
+
+Describe foreign key constraints.
+
+---
+
+## Business Key Constraints
+
+Describe candidate key constraints.
+
+---
+
+# 8. Relational Schema Diagram
 
 ```mermaid
 erDiagram
 
-ENTITY_A {
-    int id PK
-    string name
-}
+    RELATION_A ||--o{ RELATION_B : references
 
-ENTITY_B {
-    int id PK
-    int entity_a_id FK
-}
+    RELATION_A {
+        string id PK
+        string attribute1
+    }
 
-ENTITY_A ||--o{ ENTITY_B : has
+    RELATION_B {
+        string id PK
+        string relation_a_id FK
+        string attribute2
+    }
 ```
-
----
-
-## 6. Integrity Constraints
-
-### Entity Integrity
-
-| Relation | Constraint |
-| -------- | ---------- |
-|          |            |
-
-### Referential Integrity
-
-| Foreign Key | Referenced Relation |
-| ----------- | ------------------- |
-|             |                     |
-
-### Key Constraints
-
-| Relation | Constraint |
-| -------- | ---------- |
-|          |            |
-
----
-
-## 7. Design Decisions
-
-| ID    | Decision | Justification |
-| ----- | -------- | ------------- |
-| DD-01 |          |               |
-
----
-
-## 8. Assumptions and Ambiguities
-
-| ID    | Issue | Resolution |
-| ----- | ----- | ---------- |
-| AM-01 |       |            |
-
----
-
-## 9. Validation Summary
-
-* [ ] Every entity mapped to a relation
-* [ ] Every relation has a primary key
-* [ ] Foreign keys identified
-* [ ] M:N relationships resolved
-* [ ] Candidate keys documented
-* [ ] Referential integrity represented
-* [ ] Crow's Foot diagram generated
-* [ ] Logical schema complete

@@ -65,6 +65,7 @@ Develop a database system to manage the booking and usage of shared campus space
 - Check-out recording (actual end time, final space condition, usage notes).
 - Maintenance record management (space, reporter, assigned staff, problem description, start time, completion time, status, result note).
 - Conflict detection to prevent double-booking and booking of unavailable spaces.
+- Historical record keeping for bookings and maintenance.
 
 ---
 
@@ -117,3 +118,56 @@ Develop a database system to manage the booking and usage of shared campus space
 - Public-facing booking portal external to the university.
 - Automated notifications or email reminders (not mentioned in requirements).
 - Integration with university course scheduling or timetabling systems.
+- Self-service check-in or check-out by the requester (only facility staff can perform these actions).
+
+---
+
+## 7. Requirement Ambiguities
+
+| Requirement Statement | Reason for Ambiguity | Possible Interpretations | Impact | Recommended Interpretation |
+| --------------------- | -------------------- | ------------------------ | ------ | -------------------------- |
+| "A booking request may require approval from a facility staff member or manager." | The word "may" is ambiguous — it could indicate that approval is conditional on booking type, or it could simply describe who is authorized to approve. | (1) Every booking requires approval from either a facility staff member or manager. (2) Only certain booking types or certain spaces require approval; others are auto-approved. (3) "May" refers to who can approve (facility staff or manager), not whether approval is required. | Affects the approval workflow design, booking state machine, and business rules for when a booking transitions from pending to approved. | All bookings require approval from either a facility staff member or manager. The requirement lists approval as a core workflow step, and no exception or auto-approval path is described. |
+| "The system must prevent conflicting bookings. The same space cannot have two approved bookings with overlapping time periods." | The requirement states approved bookings must not overlap, but does not address whether pending, cancelled, or rejected bookings factor into conflict detection. | (1) Conflict detection applies only to approved bookings; overlapping pending bookings are allowed. (2) Conflict detection applies to any active (non-cancelled, non-rejected) booking. | Affects booking conflict resolution logic and the booking state machine. | Conflict detection should apply to any approved booking. Pending, rejected, and cancelled bookings should not block new requests. |
+| "When the requester arrives, facility staff can check in the booking." | Does not specify a time window for check-in or what happens if the requester does not arrive within a reasonable time. | (1) Check-in can occur at any time during the booked period. (2) There is an implied grace period after which the booking becomes a no-show. (3) No-show is triggered manually by staff observation. | Affects the no-show transition logic and booking lifecycle. | No-show should be a manual action performed by facility staff, consistent with the manual check-in/check-out pattern described. Clarification is recommended. |
+
+---
+
+## 8. Requirement Gaps
+
+### Assumptions
+
+| Assumption | Supporting Evidence | Reason | Risk if Incorrect |
+| ---------- | ------------------- | ------ | ----------------- |
+| A user may submit multiple booking requests. | No restriction on the number of bookings per user is specified. | Multiple bookings per user are common in space reservation scenarios. | Cardinality constraints and usage fairness policies may need adjustment if a per-user limit is introduced. |
+| Booking lifecycle states follow the sequence: pending → approved/rejected → checked in → completed/no-show. | The requirement lists statuses but does not define permitted state transitions. | A lifecycle is needed for workflow design and database state management. | If the actual lifecycle includes additional transitions (e.g., modification after approval, re-submission after rejection), the state machine may need revision. |
+| Facility staff and facility manager roles can both approve bookings and perform check-in/check-out. | The requirement states "a facility staff member or manager" for approval and "facility staff" for check-in/check-out. | The manager role is a senior staff role, so it likely inherits staff capabilities unless explicitly restricted. | If managers cannot perform check-in/check-out, the actor responsibility mapping must be revised. |
+
+### Open Questions
+
+| Question | Related Requirement | Why Clarification Is Needed | Impact |
+| -------- | ------------------- | --------------------------- | ------ |
+| Can an approved booking be modified after approval? | Booking Management | The booking lifecycle does not describe post-approval modifications. | May affect workflow analysis, status transitions, and later business rule derivation. |
+| How is a maintenance staff member assigned to a maintenance record? | Maintenance Management | The requirement mentions "assigned staff member" but does not describe the assignment process. | Affects the maintenance workflow design and assignment business rules. |
+| Is there a maximum duration or advance booking window for booking requests? | Booking Request | No restriction on booking duration or how far in advance a booking can be made is specified. | May affect data validation rules and conflict detection logic. |
+| What happens when a booking is checked in late (after the requested start time)? | Check-In | The requirement does not address late arrivals or their effect on the booking. | Affects the check-in and no-show business rules. |
+| Are facility staff allowed to submit booking requests for themselves, or do they only process requests from others? | Actors | The actor description does not explicitly state whether facility staff can also be requesters. | Affects actor capability mapping and access control rules. |
+
+---
+
+## 9. Analysis Notes
+
+### Contradictions
+
+| Conflict | Alternative Interpretations | Selected Interpretation | Justification |
+| -------- | --------------------------- | ----------------------- | ------------- |
+| No contradictions found. | — | — | The requirements are internally consistent. |
+
+### Unresolved Issues
+
+- The requirement mentions "incident reporting" in the need statement but does not describe any incident reporting process or data requirements. It is unclear whether this is a separate capability or part of maintenance management.
+
+### Analyst Comments
+
+- The requirement mentions roles (student, lecturer, teaching assistant, facility staff, department administrator, facility manager) but does not describe how roles are assigned or managed. This may need clarification in later stages.
+- The space statuses (available, in use, under maintenance, temporarily closed, retired) may need a separate state machine definition to distinguish current operational status from booking-related status.
+- The term "usage policy" is mentioned as an attribute of a space but is not defined. This may need to be clarified before implementation.
