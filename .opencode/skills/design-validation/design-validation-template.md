@@ -1,319 +1,370 @@
-# Result Template
+# Design Validation Report
 
 ## Summary
 
-| Metric                 | Value |
-| ---------------------- | ----- |
-| Total Checks Performed |       |
-| Passed Checks          |       |
-| Failed Checks          |       |
-| Critical Issues        |       |
-| Minor Issues           |       |
+| Metric | Count |
+|----------|----------|
+| Total Issues Found | |
+| Critical Issues | |
+| Minor Issues | |
 
 ### Overall Assessment
 
-**Status:** PASS / FAIL
-
-Brief summary of the overall quality of the relational schema and its compatibility with the ERD.
+- ERD ↔ Relational Schema Compatibility: PASS / FAIL
+- Business Rule Enforcement via Table-Level Constraints: PASS / FAIL
 
 ---
 
-# Detailed Validation Results
+# Detailed Findings
 
 ## 1. Entity Coverage
 
-**Status:** PASS / FAIL
+### Status: PASS / FAIL
 
 ### Findings
 
-* List findings here.
+#### Correct Entity Mappings
 
-### Missing Entities
+| ERD Entity | Relation | Verification |
+|------------|------------|------------|
+| | | |
 
-* None / List missing entities.
+#### Missing Entities
 
-### Recommendations
+| ERD Entity | Issue | Recommended Correction |
+|------------|------------|------------|
+| | | |
 
-* List recommendations.
+#### Unnecessary Relations
+
+| Relation | Reason | Recommended Correction |
+|------------|------------|------------|
+| | | |
+
+#### Attribute Coverage
+
+| Entity / Relation | Missing Attributes | Recommended Correction |
+|------------|------------|------------|
+| | | |
+
+### Evidence
+
+- ERD:
+  - ...
+- Relational Schema:
+  - ...
 
 ---
 
-## 2. Attribute Coverage
+## 2. Relationship Coverage
 
-**Status:** PASS / FAIL
+### Status: PASS / FAIL
 
 ### Findings
 
-* List findings here.
+#### Correct Relationship Mappings
 
-### Missing Attributes
+| Relationship | Representation | Verification |
+|------------|------------|------------|
+| | | |
 
-| Entity | Missing Attribute |
-| ------ | ----------------- |
-|        |                   |
+#### Incorrect Relationship Mappings
 
-### Recommendations
+| Relationship | Issue | Recommended Correction |
+|------------|------------|------------|
+| | | |
 
-* List recommendations.
+#### Missing Relationships
+
+| Relationship | Issue | Recommended Correction |
+|------------|------------|------------|
+| | | |
 
 ---
 
-## 3. Key Validation
+### Relationship Relations Validation
 
-**Status:** PASS / FAIL
+#### Correct Relationship Relations
+
+| Relation | Verification |
+|------------|------------|
+| | |
+
+#### Incorrect Relationship Relations
+
+| Relation | Issue | Recommended Correction |
+|------------|------------|------------|
+| | | |
+
+### Evidence
+
+- ERD:
+  - ...
+- Relational Schema:
+  - ...
+
+---
+
+## 3. Special Construct Validation
+
+### Status: PASS / FAIL
 
 ### Findings
 
-* List findings here.
+#### Composite Attributes
 
-### Issues
+| Construct | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
-| Relation | Issue |
-| -------- | ----- |
-|          |       |
+#### Multivalued Attributes
 
-### Recommendations
+| Construct | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
-* List recommendations.
+#### Weak Entities
 
----
+| Construct | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
-## 4. Relationship Coverage
+#### Recursive Relationships
 
-**Status:** PASS / FAIL
+| Construct | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
-### Findings
+#### N-ary Relationships
 
-* List findings here.
+| Construct | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
-### Missing Relationships
+#### Subtypes and Supertypes
 
-| Relationship | Issue |
-| ------------ | ----- |
-|              |       |
+| Construct | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
-### Recommendations
+#### Derived Attributes
 
-* List recommendations.
+| Construct | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
----
+#### Mapping Rule Validation
 
-## 5. Weak Entity Validation
+| Mapping Rule | Verification | Issue |
+|------------|------------|------------|
+| | | |
 
-**Status:** PASS / FAIL
+### Evidence
 
-### Findings
-
-* List findings here.
-
-### Recommendations
-
-* List recommendations.
-
----
-
-## 6. Cardinality Validation
-
-**Status:** PASS / FAIL
-
-### Findings
-
-* List findings here.
-
-### Cardinality Issues
-
-| Relationship | Expected | Implemented |
-| ------------ | -------- | ----------- |
-|              |          |             |
-
-### Recommendations
-
-* List recommendations.
+- ERD:
+  - ...
+- Relational Schema:
+  - ...
+- Mapping Rules:
+  - ...
 
 ---
 
-## 7. Participation Constraint Validation
+## 4. Constraint Validation
 
-**Status:** PASS / FAIL
-
-### Findings
-
-* List findings here.
-
-### Issues
-
-| Entity | Constraint Issue |
-| ------ | ---------------- |
-|        |                  |
-
-### Recommendations
-
-* List recommendations.
+### Status: PASS / FAIL
 
 ---
 
-## 8. Constraint Validation
+### 4.1 Domain Constraints
 
-**Status:** PASS / FAIL
+#### Findings
 
-### Findings
+| Relation | Attribute | Constraint | Status | Issue |
+|------------|------------|------------|------------|------------|
+| | | | PASS / FAIL | |
 
-* List findings here.
+#### Domain Constraint Violations
 
-### Constraint Issues
+| Relation | Attribute | Missing / Incorrect Constraint | Recommended Correction |
+|------------|------------|------------|------------|
+| | | | |
 
-| Relation | Missing / Incorrect Constraint |
-| -------- | ------------------------------ |
-|          |                                |
+### Evidence
 
-### Recommendations
-
-* List recommendations.
-
----
-
-## 9. Functional Dependency Validation
-
-**Status:** PASS / FAIL
-
-### Findings
-
-* List findings here.
-
-### Dependency Issues
-
-| Relation | Dependency Issue |
-| -------- | ---------------- |
-|          |                  |
-
-### Recommendations
-
-* List recommendations.
+- Schema:
+  - ...
 
 ---
 
-## 10. Normalization Check
+### 4.2 Entity Integrity Constraints
 
-**Status:** PASS / FAIL
+#### Findings
 
-### Findings
+| Relation | Validation Item | Status | Issue |
+|------------|------------|------------|------------|
+| | | PASS / FAIL | |
 
-* List findings here.
+#### Violations
 
-### Normalization Issues
+| Relation | Violation | Recommended Correction |
+|------------|------------|------------|
+| | | |
 
-| Relation | Issue |
-| -------- | ----- |
-|          |       |
+### Evidence
 
-### Recommendations
-
-* List recommendations.
-
----
-
-## 11. Referential Integrity Validation
-
-**Status:** PASS / FAIL
-
-### Findings
-
-* List findings here.
-
-### Foreign Key Issues
-
-| Foreign Key | Issue |
-| ----------- | ----- |
-|             |       |
-
-### Recommendations
-
-* List recommendations.
+- Schema:
+  - ...
 
 ---
 
-## 12. Business Rule Enforcement
+### 4.3 Referential Integrity Constraints
 
-**Status:** PASS / FAIL
+#### Findings
 
-### Findings
+| Foreign Key | Validation Item | Status | Issue |
+|------------|------------|------------|------------|
+| | | PASS / FAIL | |
 
-* List findings here.
+#### Violations
 
-### Business Rule Analysis
+| Foreign Key | Violation | Recommended Correction |
+|------------|------------|------------|
+| | | |
 
-| Business Rule | Enforceable by Schema | Constraint Used | Notes |
-| ------------- | --------------------- | --------------- | ----- |
-|               | Yes / No              |                 |       |
+### Evidence
 
-### Recommendations
-
-* List recommendations.
-
----
-
-# Critical Issues
-
-List issues that may cause incorrect data representation, integrity violations, or failure to satisfy business requirements.
-
-1.
-2.
-3.
+- Schema:
+  - ...
 
 ---
 
-# Minor Issues
+# Business Rule Validation
 
-List issues that do not prevent implementation but should be improved.
+## Status: PASS / FAIL
 
-1.
-2.
-3.
+For each business rule, verify whether it can be enforced using table-level database constraints only.
+
+### Rule Validation Results
+
+#### Rule 1
+
+**Business Rule**
+
+> ...
+
+**Can Be Enforced Using Table-Level Constraints?**
+
+- Yes / No
+
+**Required Constraints**
+
+- ...
+
+**Constraints Present In Schema**
+
+- ...
+
+**Status**
+
+- PASS / FAIL
+
+**Issue**
+
+- ...
+
+**Recommended Correction**
+
+- ...
+
+---
+
+#### Rule 2
+
+**Business Rule**
+
+> ...
+
+**Can Be Enforced Using Table-Level Constraints?**
+
+- Yes / No
+
+**Required Constraints**
+
+- ...
+
+**Constraints Present In Schema**
+
+- ...
+
+**Status**
+
+- PASS / FAIL
+
+**Issue**
+
+- ...
+
+**Recommended Correction**
+
+- ...
+
+---
+
+(Add additional rule sections as needed.)
+
+---
+
+# Issues List
+
+## Critical Issues
+
+| ID | Category | Description | Recommended Correction |
+|------|------|------|------|
+| C-01 | | | |
+
+## Minor Issues
+
+| ID | Category | Description | Recommended Correction |
+|------|------|------|------|
+| M-01 | | | |
 
 ---
 
 # Final Verdict
 
-## ERD Representation
+## 1. ERD to Relational Schema Compatibility
 
 PASS / FAIL
 
-Explanation:
+### Explanation
+
+- ...
 
 ---
 
-## Keys and Relationships
+## 2. Business Rule Enforcement
 
 PASS / FAIL
 
-Explanation:
+### Explanation
+
+- ...
 
 ---
 
-## Constraints and Integrity
+## Conclusion
 
-PASS / FAIL
+### Compatible Mapping
 
-Explanation:
+- Yes / No
 
----
+### All Enforceable Business Rules Satisfied
 
-## Business Rule Enforcement
+- Yes / No
 
-PASS / FAIL
+### Overall Result
 
-Explanation:
-
----
-
-## Overall Conclusion
-
-State whether the relational schema:
-
-* Correctly represents the ERD.
-* Preserves entities, attributes, and relationships.
-* Implements appropriate keys and constraints.
-* Enforces business rules where possible.
-* Is suitable for implementation.
-
-Final Status: PASS / FAIL
+- ACCEPTABLE
+- ACCEPTABLE WITH CORRECTIONS
+- REQUIRES REDESIGN

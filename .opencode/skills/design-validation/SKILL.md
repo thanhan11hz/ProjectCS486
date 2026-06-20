@@ -5,13 +5,9 @@ description: validate whether the relational schema correctly represents the ERD
 compatibility: opencode
 -----------------------
 
-# Required Input Files
+# Validate Compatibility Between ERD And Relational Schema
 
 IMPORTANT: Do not read unrelated files unless explicitly requested.
-
-Read the business requirements from:
-
-* `outputs/01-business-req-analysis-G7.md`
 
 Read the ERD design from:
 
@@ -21,368 +17,141 @@ Read the relational schema design from:
 
 * `outputs/03-logical-design-G7.md`
 
+Read the mapping rules from:
+
+* `.opencode/skills/logical-design/SKILL.md`
+
 ---
 
-# Validation Criteria
 
 ## 1. Entity Coverage
 
-Verify that every entity defined in the ERD is represented in the relational schema.
+Verify:
 
-### Verify
-
-* All entities appear as relations/tables.
+* All entities in ERD appear as relation in the relational schema.
 * No required entity is missing.
-* No unnecessary tables have been introduced without justification.
+* No unnecessary relations have been introduced without justification.
+* Primary key of each table is correctly defined.
 
-### Example
+Document the correct and incorrect mapping between entities and relations.
 
-**ERD**
-
-* Student
-* Course
-* Instructor
-
-**Schema**
-
-```text
-Student(...)
-Course(...)
-Instructor(...)
-```
-
-Result:
-
-* PASS if all entities are represented.
+For each relation representing an entity, verify all attributes are present. Record attributes not included
 
 ---
 
-## 2. Attribute Coverage
+## 2. Relationship Coverage 
 
-Verify that all attributes defined in the ERD are included in the corresponding relations.
+For each conceptual relationship, verify:
 
-### Verify
+* Verify it is represented through foreign key references or associative relations.
+* Cardinality is correctly determined.
+* Participation constraints are correctly determined.
 
-* All simple attributes are present.
-* Composite attributes are appropriately decomposed if required.
-* Derived attributes are handled consistently.
-* No required attributes are missing.
+Document relationships that are correctly and incorrectly handled.
+Document relationships that are not handled. 
 
-### Example
+For each relation representing a relationship, verify:
 
-**ERD**
+* Approriate foreign keys are included.
+* Primary key is correctly defined.
+* Correct and sufficient relationship attributes are included.
+* Referenced relations are correctly determined.
 
-```text
-Student(StudentID, Name, Email)
-```
+Document correct and incorrect relations that represent relationships.
 
-**Schema**
+--- 
 
-```text
-Student(StudentID, Name)
-```
+## 3. Special Construct Validation
 
-Issue:
+Verify all special ER constructs are correctly handled. The special constructs include:
 
-* Email attribute is missing.
+* Composite attributes
+* Multivalued attributes
+* Weak entities
+* Recursive relationships
+* N-ary relationships
+* Subtypes and supertypes
+* Derived attributes
 
----
-
-## 3. Key Validation
-
-Verify that keys are correctly identified and implemented.
-
-### Verify
-
-* Primary keys uniquely identify each tuple.
-* Candidate keys are preserved where appropriate.
-* Alternate keys use UNIQUE constraints when required.
-* Composite keys are correctly defined.
-* Weak entity keys are correctly implemented.
-
-### Example
-
-```text
-Student(
-    StudentID,
-    Name,
-    Email
-)
-```
-
-Primary Key:
-
-```text
-StudentID
-```
-
-Result:
-
-* Verify that every row can be uniquely identified.
+Document correct and incorrect assumptions or design decisions.
+Document the correct and incorrect uses of mapping rules.
 
 ---
 
-## 4. Relationship Coverage
+## 4. Constraint Validation
 
-Verify that every relationship in the ERD is represented in the relational schema.
 
-### Verify
+To verify whether business rules can be enforced using table-level database constraints, only the following constraint types are supported:
 
-* All relationships appear in the schema.
-* Relationship tables exist when required.
-* Foreign keys correctly represent relationships.
-
-### Example
-
-**ERD**
-
-```text
-Student enrolls in Course
-```
-
-**Schema**
-
-```text
-Enrollment(
-    StudentID,
-    CourseID
-)
-```
-
-Result:
-
-* Relationship correctly represented.
-
----
-
-## 5. Weak Entity Validation
-
-Verify that weak entities are correctly transformed into relations.
-
-### Verify
-
-* Weak entities exist as relations.
-* Identifying relationships are preserved.
-* The primary key includes the owner's key when required.
-* Foreign keys correctly reference the owning entity.
-
-### Example
-
-```text
-Dependent(
-    EmployeeID,
-    DependentName
-)
-```
-
-Primary Key:
-
-```text
-(EmployeeID, DependentName)
-```
-
-Result:
-
-* Weak entity correctly implemented.
-
----
-
-## 6. Cardinality Validation
-
-Verify that relationship cardinalities from the ERD are preserved.
-
-### Verify
-
-#### One-to-One (1:1)
-
-* Implemented using foreign keys and uniqueness constraints where necessary.
-
-#### One-to-Many (1:N)
-
-* Foreign key exists on the many side.
-
-#### Many-to-Many (M:N)
-
-* Implemented using an associative relation.
-
-### Example
-
-**Requirement**
-
-```text
-One Department has many Employees
-```
-
-**Schema**
-
-```text
-Employee(
-    EmpID,
-    DeptID
-)
-```
-
-Result:
-
-* Foreign key correctly models the relationship.
-
----
-
-## 7. Participation Constraint Validation
-
-Verify that mandatory and optional participation constraints are enforced.
-
-### Verify
-
-* Mandatory participation uses NOT NULL foreign keys.
-* Optional participation allows NULL values where appropriate.
-
-### Example
-
-```text
-Employee(
-    EmpID,
-    DeptID NOT NULL
-)
-```
-
-Result:
-
-* Every employee must belong to a department.
-
----
-
-## 8. Constraint Validation
-
-Verify that schema constraints correctly enforce the database design.
-
-### Verify
-
+* Domain constraints
 * PRIMARY KEY constraints
 * FOREIGN KEY constraints
-* UNIQUE constraints
-* NOT NULL constraints
-* CHECK constraints
-* DEFAULT constraints
+* Constraints on NULL values
+* Constraints on UNIQUE values
+* Entity Integrity constraints
+* Referential Integrity constraints
 
-### Identify
+Note: do not count violations of business rules that cannot be enforced using table-level database constraints as failures.
 
-* Missing constraints.
-* Incorrect constraints.
-* Unnecessary constraints.
+### 4.1 Domain Constraints
 
----
+For each attribute of each relation, verify:
 
-## 9. Functional Dependency Validation
+* Correct value range is specified.
+* Fixed set of values are correctly enforced in case of enumerated values
+* NULL/NOT NULL constraints are correctly identified.
+* UNIQUE constraints are correctly identified
 
-Where functional dependencies can be inferred from the ERD or requirements, verify that they are preserved.
+Record incorrect constraints.
 
-### Verify
+### 4.2 Entity Integrity Constraints
 
-* Attributes depend on the appropriate key.
-* Partial dependencies are avoided.
-* Transitive dependencies are minimized.
-* Dependencies are preserved after transformation.
+For each relation, verify:
 
-### Example
+* Every primary key attribute is defined as NOT NULL.
+* Every primary key attribute is defined as UNIQUE.
+* No component of a composite primary key allows NULL values.
+* Each relation has a clearly identified primary key.
 
-```text
-StudentID → Name, Major
-```
+Record violations of entity integrity.
 
-Result:
+### 4.3 Referential Integrity Constraints
 
-* Non-key attributes depend on the primary key.
+For each foreign key, verify:
 
----
+* The referenced relation and referenced key exist.
+* The foreign key and referenced key have compatible domains and data types.
+* No foreign key references a non-key attribute 
 
-## 10. Normalization Check
-
-Verify that redundancy is minimized and normalization goals are satisfied.
-
-### Verify
-
-* First Normal Form (1NF)
-* Second Normal Form (2NF)
-* Third Normal Form (3NF)
-
-If applicable:
-
-* Boyce-Codd Normal Form (BCNF)
-
-### Identify
-
-* Partial dependencies.
-* Transitive dependencies.
-* Update anomalies.
-* Insertion anomalies.
-* Deletion anomalies.
-
-### Example
-
-Poor Design:
-
-```text
-Student(
-    StudentID,
-    StudentName,
-    CourseID,
-    CourseName
-)
-```
-
-Problem:
-
-```text
-CourseID → CourseName
-```
-
-Result:
-
-* Indicates a normalization issue.
+Record violations of referential integrity.
 
 ---
 
-## 11. Referential Integrity Validation
+# Validate Business Rule Satisfaction
 
-Verify that foreign key relationships are valid.
+IMPORTANT: Do not read unrelated files unless explicitly requested.
 
-### Verify
+Read the business requirements from:
 
-* Every foreign key references a valid primary key or candidate key.
-* Foreign key relationships are consistent.
-* Referential integrity is maintained.
+* `outputs/01-business-req-analysis-G7.md`
 
-### Example
+Read the relational schema design from:
 
-```text
-Enrollment.StudentID
-    → Student.StudentID
-
-Enrollment.CourseID
-    → Course.CourseID
-```
-
-Result:
-
-* Referential integrity preserved.
+* `outputs/03-logical-design-G7.md`
 
 ---
 
-## 12. Business Rule Enforcement
+To verify whether business rules can be enforced using table-level database constraints, only the following constraint types are supported:
 
-Verify whether business rules can be enforced using table-level database constraints.
+* Domain constraints
+* PRIMARY KEY constraints
+* FOREIGN KEY constraints
+* Constraints on NULL values
+* Constraints on UNIQUE values
+* Entity Integrity constraints
+* Referential Integrity constraints
 
-### Supported Constraint Types
-
-* PRIMARY KEY
-* FOREIGN KEY
-* UNIQUE
-* NOT NULL
-* CHECK
-* DEFAULT
-
-### Evaluation Process
+Note: do not count violations of business rules that cannot be enforced using table-level database constraints as failures.
 
 For each business rule:
 
@@ -391,64 +160,6 @@ For each business rule:
 3. Identify the required constraint(s).
 4. Verify that the schema contains those constraints.
 5. Report any missing enforcement.
-
-### Examples
-
-Rule:
-
-```text
-Student age must be greater than 17.
-```
-
-Constraint:
-
-```sql
-CHECK (Age > 17)
-```
-
-Rule:
-
-```text
-Grade must be between 0 and 100.
-```
-
-Constraint:
-
-```sql
-CHECK (Grade BETWEEN 0 AND 100)
-```
-
-### Notes
-
-Some business rules cannot be enforced using standard table constraints alone.
-
-Examples:
-
-* Maximum number of students enrolled in a course.
-* Total enrollments per student.
-* Aggregate calculations across multiple rows.
-* Complex cross-table validations.
-
-Such rules should be documented as requiring implementation outside the schema (e.g., application logic).
-
----
-
-# Quick Validation Checklist
-
-| Check                     | Validation Question                                        |
-| ------------------------- | ---------------------------------------------------------- |
-| Entity Coverage           | Are all entities represented?                              |
-| Attribute Coverage        | Are all attributes included?                               |
-| Key Validation            | Are primary, candidate, and alternate keys correct?        |
-| Relationship Coverage     | Are all relationships modeled?                             |
-| Weak Entity Validation    | Are weak entities correctly implemented?                   |
-| Cardinality Validation    | Are 1:1, 1:N, and M:N relationships represented correctly? |
-| Participation Constraints | Are mandatory relationships enforced?                      |
-| Constraint Validation     | Are appropriate constraints defined?                       |
-| Functional Dependencies   | Are dependencies preserved correctly?                      |
-| Normalization             | Is redundancy minimized?                                   |
-| Referential Integrity     | Are foreign keys valid?                                    |
-| Business Rules            | Can business rules be enforced?                            |
 
 ---
 
@@ -479,13 +190,8 @@ For each validation criterion:
 
 State whether:
 
-1. The relational schema correctly represents the ERD.
-2. Relationships and cardinalities are preserved.
-3. Keys are appropriately implemented.
-4. Constraints are correctly defined.
-5. Business rules are adequately enforced.
-6. The schema is suitable for implementation.
-
+1. Relational schema is compatibly mapped from the ERD
+2. Relational schema satisfied all business rules that an be enforced using table-level database constraints
 ---
 
 ## Output Specification
@@ -494,28 +200,8 @@ Create or update:
 
 `outputs/04-design-validation-G7.md`
 
-The document must follow the template:
+The document must follow the template. Read the template from:
 
 `.opencode/skills/design-validation/design-validation-template.md`
 
 Do not omit any required section.
-
-
----
-
-# Recommended Evaluation Process
-
-1. Identify all entities from the ERD.
-2. Verify corresponding relations exist.
-3. Check attribute completeness.
-4. Validate keys.
-5. Validate relationships.
-6. Validate weak entities.
-7. Verify cardinalities.
-8. Verify participation constraints.
-9. Check schema constraints.
-10. Validate functional dependencies.
-11. Assess normalization.
-12. Verify referential integrity.
-13. Evaluate business rule enforcement.
-14. Produce the final verdict.
