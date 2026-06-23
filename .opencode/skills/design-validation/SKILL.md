@@ -141,25 +141,61 @@ Read the relational schema design from:
 
 ---
 
-To verify whether business rules can be enforced using table-level database constraints, only the following constraint types are supported:
+## Business Rule Enforcement Validation
 
-* Domain constraints
+VERY IMPORTANT: validation is made on relational schema, not SQL. Hence:
+
+* Cross-domain CHECK is not available
+* Single-domain CHECK between rows only allows UNIQUE, no comparison between many rows of the same attribute is allowed
+
+For each business rule, determine whether it can be enforced using ONLY the following database constraint mechanisms, taking into account the limitation of CHECK above:
+
+* Domain constraints (data types, value ranges, enumerated values)
 * PRIMARY KEY constraints
 * FOREIGN KEY constraints
-* Constraints on NULL values
-* Constraints on UNIQUE values
+* NOT NULL constraints
+* UNIQUE constraints
 * Entity Integrity constraints
 * Referential Integrity constraints
 
-Note: do not count violations of business rules that cannot be enforced using table-level database constraints as failures.
+Do NOT assume the use of:
+
+* Triggers
+* Stored procedures
+* Assertions
+* Exclusion constraints
+* Check constraints involving other tables
+* Application logic
+* Scheduled jobs
+* Manual procedures
+
+Mark a Rule as NOT Enforceable If It Requires:
+
+* CHECK that can be achieved in SQL but not on relational schema
+* Cross-domain CHECK or CHECK outside
+* Validation involving values from another table beyond a foreign key relationship
+* Validation involving multiple rows in the same table
+* Detection of overlapping time periods
+* State transition or workflow logic
+* Historical record preservation
+* Automatic status changes based on time
+* Conditional existence of related records
+* User role or permission checks
+* Any logic requiring knowledge of previous database states
+
+
+
+## Output Requirements
+
+IMPORTANT: Do not mark a rule as fail if it is not enforceable. 
 
 For each business rule:
 
-1. State the rule.
-2. Determine whether it can be enforced using table-level constraints.
-3. Identify the required constraint(s).
-4. Verify that the schema contains those constraints.
-5. Report any missing enforcement.
+1. State whether it is enforceable using only the allowed constraint types.
+2. Identify the specific constraint types that support the rule.
+3. Explain why the rule is enforceable or not enforceable.
+4. If not enforceable, describe what additional mechanism would be required (e.g., trigger, application logic, workflow logic).
+5. Do not mark a rule as enforceable merely because the schema contains tables capable of storing the required data.
 
 ---
 
