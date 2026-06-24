@@ -1,5 +1,5 @@
 ---
-description: Evaluate whether the relational schema correctly represents the ERD, satisfies the business rules, and uses appropriate keys, relationships, and constraints.
+description: Transform validated logical database schema into executable Microsoft SQL Server DDL scripts no seed data.
 ---
 
 Execute:
@@ -7,7 +7,7 @@ Execute:
 1. Load:
    `.opencode/skills/db-implementation/SKILL.md`
 
-2. Execute the skill.
+2. Execute the skill. 
 
 3. Generate or update:
    `outputs/05-db-implementation-G7.sql`
@@ -15,7 +15,7 @@ Execute:
 4. Stop.
 
 Rules:
-
+* If the output file has already exist, validate it again and update the SQL file with all the rule in the skill and update the file, do not skip this step.
 * Do not load unrelated skills.
 * Execute only the specified skill.
 * If a prerequisite artifact is missing, report it and stop.
