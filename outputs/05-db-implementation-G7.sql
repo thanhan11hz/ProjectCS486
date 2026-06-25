@@ -164,7 +164,7 @@ CREATE TABLE approvals
         REFERENCES users (user_id) ON DELETE NO ACTION,
     CONSTRAINT ck_approvals_decision CHECK (decision IN (N'approved', N'rejected')),
     CONSTRAINT ck_approvals_rejection_reason CHECK (
-        decision <> N'rejected' OR rejection_reason IS NOT NULL
+        decision <> N'rejected' 
     )
 );
 GO
