@@ -103,9 +103,9 @@ GO
 -- ----------------------------------------------------------------------------
 CREATE TABLE facilities
 (
-    facility_id    VARCHAR(50)   NOT NULL,
-    facility_name  NVARCHAR(200) NOT NULL,
-    description    NVARCHAR(MAX) NULL,
+    facility_id    INT IDENTITY(1,1) NOT NULL,
+    facility_name  NVARCHAR(200)     NOT NULL,
+    description    NVARCHAR(MAX)     NULL,
 
     CONSTRAINT pk_facilities PRIMARY KEY (facility_id),
     CONSTRAINT uq_facilities_facility_name UNIQUE (facility_name)
@@ -117,14 +117,14 @@ GO
 -- ----------------------------------------------------------------------------
 CREATE TABLE bookings
 (
-    booking_id             VARCHAR(50)  NOT NULL,
-    requester_id           VARCHAR(50)  NOT NULL,
-    space_code             VARCHAR(20)  NOT NULL,
-    requested_start_time   DATETIME2    NOT NULL,
-    requested_end_time     DATETIME2    NOT NULL,
-    purpose                VARCHAR(30)  NOT NULL,
-    expected_participants  INT          NOT NULL,
-    status                 VARCHAR(20)  NOT NULL DEFAULT N'pending',
+    booking_id             INT IDENTITY(1,1) NOT NULL,
+    requester_id           VARCHAR(50)       NOT NULL,
+    space_code             VARCHAR(20)       NOT NULL,
+    requested_start_time   DATETIME2         NOT NULL,
+    requested_end_time     DATETIME2         NOT NULL,
+    purpose                VARCHAR(30)       NOT NULL,
+    expected_participants  INT               NOT NULL,
+    status                 VARCHAR(20)       NOT NULL DEFAULT N'pending',
 
     CONSTRAINT pk_bookings PRIMARY KEY (booking_id),
     CONSTRAINT fk_bookings_users FOREIGN KEY (requester_id)
@@ -149,13 +149,13 @@ GO
 -- ----------------------------------------------------------------------------
 CREATE TABLE approvals
 (
-    booking_id      VARCHAR(50)   NOT NULL,
-    approval_id     VARCHAR(50)   NOT NULL,
-    approver_id     VARCHAR(50)   NOT NULL,
-    decision        VARCHAR(20)   NOT NULL,
-    decision_time   DATETIME2     NOT NULL,
-    decision_note   NVARCHAR(MAX) NULL,
-    rejection_reason NVARCHAR(MAX) NULL,
+    booking_id       INT            NOT NULL,
+    approval_id      INT IDENTITY(1,1) NOT NULL,
+    approver_id      VARCHAR(50)    NOT NULL,
+    decision         VARCHAR(20)    NOT NULL,
+    decision_time    DATETIME2      NOT NULL,
+    decision_note    NVARCHAR(MAX)  NULL,
+    rejection_reason NVARCHAR(MAX)  NULL,
 
     CONSTRAINT pk_approvals PRIMARY KEY (booking_id, approval_id),
     CONSTRAINT fk_approvals_bookings FOREIGN KEY (booking_id)
@@ -174,14 +174,14 @@ GO
 -- ----------------------------------------------------------------------------
 CREATE TABLE sessions
 (
-    booking_id        VARCHAR(50)   NOT NULL,
-    session_id        VARCHAR(50)   NOT NULL,
-    conductor_id      VARCHAR(50)   NOT NULL,
-    actual_start_time DATETIME2     NOT NULL,
-    actual_end_time   DATETIME2     NULL,
-    initial_condition NVARCHAR(MAX) NOT NULL,
-    final_condition   NVARCHAR(MAX) NULL,
-    usage_notes       NVARCHAR(MAX) NULL,
+    booking_id        INT            NOT NULL,
+    session_id        INT IDENTITY(1,1) NOT NULL,
+    conductor_id      VARCHAR(50)    NOT NULL,
+    actual_start_time DATETIME2      NOT NULL,
+    actual_end_time   DATETIME2      NULL,
+    initial_condition NVARCHAR(MAX)  NOT NULL,
+    final_condition   NVARCHAR(MAX)  NULL,
+    usage_notes       NVARCHAR(MAX)  NULL,
 
     CONSTRAINT pk_sessions PRIMARY KEY (booking_id, session_id),
     CONSTRAINT fk_sessions_bookings FOREIGN KEY (booking_id)
@@ -199,15 +199,15 @@ GO
 -- ----------------------------------------------------------------------------
 CREATE TABLE maintenance_records
 (
-    maintenance_id      VARCHAR(50)   NOT NULL,
-    reporter_id         VARCHAR(50)   NOT NULL,
-    space_code          VARCHAR(20)   NOT NULL,
-    assigned_staff_id   VARCHAR(50)   NOT NULL,
-    problem_description NVARCHAR(MAX) NOT NULL,
-    start_time          DATETIME2     NOT NULL,
-    completion_time     DATETIME2     NULL,
-    status              VARCHAR(20)   NOT NULL DEFAULT N'reported',
-    result_note         NVARCHAR(MAX) NULL,
+    maintenance_id      INT IDENTITY(1,1) NOT NULL,
+    reporter_id         VARCHAR(50)       NOT NULL,
+    space_code          VARCHAR(20)       NOT NULL,
+    assigned_staff_id   VARCHAR(50)       NOT NULL,
+    problem_description NVARCHAR(MAX)     NOT NULL,
+    start_time          DATETIME2         NOT NULL,
+    completion_time     DATETIME2         NULL,
+    status              VARCHAR(20)       NOT NULL DEFAULT N'reported',
+    result_note         NVARCHAR(MAX)     NULL,
 
     CONSTRAINT pk_maintenance_records PRIMARY KEY (maintenance_id),
     CONSTRAINT fk_maintenance_records_users_reporter FOREIGN KEY (reporter_id)
@@ -231,7 +231,7 @@ GO
 CREATE TABLE space_facilities
 (
     space_code   VARCHAR(20) NOT NULL,
-    facility_id  VARCHAR(50) NOT NULL,
+    facility_id  INT         NOT NULL,
     quantity     INT         NOT NULL,
 
     CONSTRAINT pk_space_facilities PRIMARY KEY (space_code, facility_id),
@@ -249,6 +249,77 @@ GO
 -- Seed data will be generated in a later stage (outputs/06-sample-data.sql).
 -- This section is reserved for comprehensive testing insert queries.
 -- ============================================================================
+
+-- ============================================================================
+-- 5. BUSINESS RULES DOCUMENTATION
+-- ----------------------------------------------------------------------------
+-- Business rules from the logical design that cannot be enforced via DDL
+-- constraints and must be enforced at the application or trigger level.
+-- ============================================================================
+
+-- BR-NI-01: Booking status transitions
+--   A booking's status must follow a defined lifecycle:
+--   pending -> approved/rejected -> checked_in -> completed/no_show/cancelled.
+--   Reason: Status transitions require knowledge of the current state and
+--   cannot be enforced with a static CHECK constraint. Enforced at the
+--   application layer or via a DML trigger.
+
+-- BR-NI-02: Only pending bookings can be approved
+--   The approvals table references a booking; the referenced booking must
+--   have status = 'pending' at the time of approval insertion.
+--   Reason: Cross-table validation cannot be expressed in a CHECK
+--   constraint. Enforced at the application layer or via a trigger.
+
+-- BR-NI-03: Only approved bookings can have sessions
+--   A session (actual usage) should only be created for bookings whose
+--   status is 'approved'.
+--   Reason: Cross-table validation. Enforced at the application layer
+--   or via a trigger.
+
+-- BR-NI-04: Approver must be different from requester
+--   The approver_id in approvals must not equal the requester_id in the
+--   referenced booking.
+--   Reason: Cross-table comparison. Enforced at the application layer
+--   or via a trigger.
+
+-- BR-NI-05: Expected participants must not exceed space capacity
+--   bookings.expected_participants <= spaces.capacity for the referenced
+--   space_code.
+--   Reason: Cross-table validation. Enforced at the application layer
+--   or via a trigger.
+
+-- BR-NI-06: Booking time range must not overlap existing bookings
+--   A new booking's [requested_start_time, requested_end_time) must not
+--   overlap any existing approved booking for the same space.
+--   Reason: Requires querying existing rows; not expressible as a scalar
+--   CHECK constraint. Enforced at the application layer or via a trigger.
+
+-- BR-NI-07: Role-based access control
+--   Only users with appropriate roles can perform certain actions
+--   (e.g., only facility_manager can approve bookings, only students can
+--   book student_workspace, only facility_staff can be assigned to
+--   maintenance records).
+--   Reason: Role-based authorization is inherently application-level.
+--   Enforced at the application layer.
+
+-- BR-NI-08: Assigned maintenance staff must hold facility role
+--   The assigned_staff_id in maintenance_records must reference a user
+--   whose role is 'facility_staff' or 'facility_manager'.
+--   Reason: Cross-table validation requiring subquery. Enforced at the
+--   application layer or via a trigger.
+
+-- BR-NI-09: A booking can have at most one approval
+--   The 1:1 identifying relationship (reviews) between Booking and
+--   Approval is structurally enforced by the composite PK
+--   (booking_id, approval_id). However, nothing prevents multiple
+--   approval rows for the same booking_id. A UNIQUE constraint on
+--   booking_id alone is not added because the weak-entity mapping
+--   requires the composite PK per Rule 2. Enforced at the application
+--   layer or via a trigger if strict 1:1 is required.
+
+-- BR-NI-10: A booking can have at most one session
+--   Same reasoning as BR-NI-09 for the tracks relationship.
+--   Enforced at the application layer or via a trigger.
 
 -- ============================================================================
 -- END OF SCRIPT

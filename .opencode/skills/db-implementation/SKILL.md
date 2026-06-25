@@ -79,7 +79,8 @@ All explicit constraints must follow a strict prefix naming convention:
 ## Data Type Mapping Rules (MS SQL Server Specific)
 
 ### Rule T1 — String and Text Handling
-* Use `VARCHAR(N)` or `CHAR(N)` ONLY for non-Unicode fields, emails, IDs, and status tokens.
+* This rule does not apply to IDs, which are handled separately in Rule T4.
+* Use `VARCHAR(N)` or `CHAR(N)` ONLY for non-Unicode fields, emails, and status tokens.
 * Use `NVARCHAR(N)` or `NVARCHAR(MAX)` when the text might not be in English(e.g., names, descriptions,comments). 
 
 ### Rule T2 — Numbers, Booleans, and Dates
@@ -96,6 +97,9 @@ All explicit constraints must follow a strict prefix naming convention:
 
 * **DML Isolation:** Append GO after completing a group of INSERT INTO statements for a specific table in the seed data block.---
 
+### Rule T4 — Decide IDs type
+* If the ID is for external IDs(IDs that can be used or input outside the system, might depend on the outside), use `VARCHAR` or `NVARCHAR`, with appropriate length.(eg. User IDs, Space codes, etc.)
+* If the ID is for internal IDs(IDs that are only used inside the system, and not exposed outside), use `INT` or `BIGINT` with `IDENTITY(1,1)`.(eg. Facility, Maintenance record IDs, etc.)
 
 ## Execution Process
 
@@ -134,6 +138,11 @@ Embed business logic directly into the table definitions:
 * Append `CHECK` constraints for value ranges (e.g., `CONSTRAINT ck_spaces_capacity CHECK (capacity > 0)`).
 * Append `UNIQUE` constraints for non-key columns that must remain distinct.
 * Append `FOREIGN KEY` constraints with explicit `ON DELETE` behavior (e.g., `CASCADE` for weak entities, `NO ACTION` otherwise).
+
+### Step 5 — Business Rules Documentation
+Document all business rules and constraints that were not implemented in the output SQL file as comments at the end of the file. Include:
+* The rule description.
+* The reason for not implementing it (e.g., "This rule is enforced at the application level, not the database level").
 
 
 ## Important Rules
@@ -186,8 +195,7 @@ The file must structure as follows:
 
 Before saving:
 * No seed data is included in the output.
-* Compare the SQL script for primary key, foreign key, data type with the crowfoot diagram in the logical design.
-* Datatype matching correct for all attributes with the data type mapping rules. Remember checking IDs is VARCHAR
+* Datatype matching correct for all attributes with the data type mapping rules. All IDs must follow the decided ID type rules.
 * Naming conventions for tables, columns, and constraints are strictly followed, no name conflicts with reserved words or keywords, of Microsoft SQL Server.
 * The SQL script executes without syntax errors on Microsoft SQL Server.
 * No explicit Indexing (`CREATE INDEX`) is included in the output.
