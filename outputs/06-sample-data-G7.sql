@@ -2,8 +2,8 @@
 -- Sample Data Script
 -- Project     : CS486 Booking System (Group 7)
 -- DBMS        : Microsoft SQL Server (T-SQL)
--- Description : Realistic sample data for testing and evaluation. Includes
---               normal operations, boundary conditions, and exceptional cases.
+-- Description : Bulk-generated realistic sample data using set-based operations.
+--               Each core entity table meets minimum row targets (500-3000 rows).
 -- Artifact    : outputs/06-sample-data-G7.sql
 -- Prerequisite: outputs/05-db-implementation-G7.sql
 -- ============================================================================
@@ -24,63 +24,169 @@ GO
 -- ============================================================================
 
 -- ============================================================================
--- 1. USERS
---    Roles: student, lecturer, teaching_assistant, facility_staff,
---           department_administrator, facility_manager
+-- 1. USERS (600 rows)
+--    Roles: student (60%), lecturer (15%), teaching_assistant (10%),
+--           facility_staff (5%), department_administrator (6%),
+--           facility_manager (4%)
+--    Account status: active (92%), suspended (8%)
 -- ============================================================================
+WITH
+first_name_pool AS (
+    SELECT name FROM (VALUES
+        (N'James'),(N'Mary'),(N'Robert'),(N'Patricia'),(N'John'),
+        (N'Jennifer'),(N'Michael'),(N'Linda'),(N'David'),(N'Elizabeth'),
+        (N'William'),(N'Barbara'),(N'Richard'),(N'Susan'),(N'Joseph'),
+        (N'Jessica'),(N'Thomas'),(N'Sarah'),(N'Christopher'),(N'Karen'),
+        (N'Daniel'),(N'Nancy'),(N'Matthew'),(N'Lisa'),(N'Anthony'),
+        (N'Margaret'),(N'Mark'),(N'Betty'),(N'Donald'),(N'Sandra')
+    ) AS fn(name)
+),
+last_name_pool AS (
+    SELECT name FROM (VALUES
+        (N'Smith'),(N'Johnson'),(N'Williams'),(N'Brown'),(N'Jones'),
+        (N'Garcia'),(N'Miller'),(N'Davis'),(N'Rodriguez'),(N'Martinez'),
+        (N'Hernandez'),(N'Lopez'),(N'Gonzalez'),(N'Wilson'),(N'Anderson'),
+        (N'Thomas'),(N'Taylor'),(N'Moore'),(N'Jackson'),(N'Martin')
+    ) AS ln(name)
+),
+department_pool AS (
+    SELECT name FROM (VALUES
+        (N'Computer Science'),(N'Mathematics'),(N'Physics'),(N'Chemistry'),
+        (N'Biology'),(N'Engineering'),(N'English'),(N'History'),
+        (N'Psychology'),(N'Economics'),(N'Philosophy'),(N'Art')
+    ) AS d(name)
+),
+numbered AS (
+    SELECT
+        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS seq,
+        fn.name AS fn_name,
+        ln.name AS ln_name,
+        d.name AS dept_name,
+        ABS(CHECKSUM(NEWID())) % 100 AS role_roll,
+        ABS(CHECKSUM(NEWID())) % 100 AS status_roll,
+        ABS(CHECKSUM(NEWID())) % 100 AS phone_roll
+    FROM first_name_pool fn
+    CROSS JOIN last_name_pool ln
+    CROSS JOIN department_pool d
+)
 INSERT INTO users (user_id, first_name, last_name, email, phone_number, role, department, account_status)
-VALUES
--- Facility managers and staff
-(N'U001', N'John',    N'Smith',    N'john.smith@university.edu',    N'+1-555-0101', N'facility_manager',         N'Facilities Management', N'active'),
-(N'U002', N'Sarah',   N'Johnson',  N'sarah.johnson@university.edu', N'+1-555-0102', N'department_administrator', N'Computer Science',      N'active'),
-(N'U003', N'Michael', N'Chen',     N'michael.chen@university.edu',  N'+1-555-0103', N'lecturer',                 N'Mathematics',           N'active'),
-(N'U004', N'Emily',   N'Davis',    N'emily.davis@university.edu',   N'+1-555-0104', N'lecturer',                 N'Physics',               N'active'),
-(N'U005', N'James',   N'Wilson',   N'james.wilson@university.edu',  N'+1-555-0105', N'lecturer',                 N'Computer Science',      N'active'),
-(N'U006', N'Maria',   N'Garcia',   N'maria.garcia@university.edu',  N'+1-555-0106', N'teaching_assistant',       N'Computer Science',      N'active'),
-(N'U007', N'David',   N'Brown',    N'david.brown@university.edu',   N'+1-555-0107', N'teaching_assistant',       N'Mathematics',           N'active'),
-(N'U008', N'Jennifer',N'Lee',      N'jennifer.lee@university.edu',  N'+1-555-0108', N'facility_staff',           N'Facilities Management', N'active'),
-(N'U009', N'Robert',  N'Martinez', N'robert.martinez@university.edu',N'+1-555-0109',N'facility_staff',           N'Facilities Management', N'active'),
-(N'U010', N'Amanda',  N'Thompson', N'amanda.thompson@university.edu',N'+1-555-0110',N'department_administrator', N'Physics',               N'active'),
--- Students
-(N'U011', N'Kevin',         N'Anderson',   N'kevin.anderson@university.edu',    N'+1-555-0111', N'student', N'Computer Science', N'active'),
-(N'U012', N'Lisa',          N'Taylor',     N'lisa.taylor@university.edu',       N'+1-555-0112', N'student', N'Computer Science', N'active'),
-(N'U013', N'Daniel',        N'Thomas',     N'daniel.thomas@university.edu',     N'+1-555-0113', N'student', N'Mathematics',      N'active'),
-(N'U014', N'Jessica',       N'Hernandez',  N'jessica.hernandez@university.edu', N'+1-555-0114', N'student', N'Physics',          N'active'),
-(N'U015', N'Christopher',   N'Moore',      N'christopher.moore@university.edu', N'+1-555-0115', N'student', N'Computer Science', N'active'),
-(N'U016', N'Ashley',        N'Jackson',    N'ashley.jackson@university.edu',     N'+1-555-0116', N'student', N'Mathematics',      N'active'),
-(N'U017', N'Matthew',       N'White',      N'matthew.white@university.edu',      N'+1-555-0117', N'student', N'Physics',          N'active'),
-(N'U018', N'Megan',         N'Harris',     N'megan.harris@university.edu',       N'+1-555-0118', N'student', N'Computer Science', N'active'),
-(N'U019', N'Joshua',        N'Clark',      N'joshua.clark@university.edu',       N'+1-555-0119', N'student', N'Engineering',      N'suspended'),
-(N'U020', N'Lauren',        N'Lewis',      N'lauren.lewis@university.edu',       N'+1-555-0120', N'student', N'Engineering',      N'active');
+SELECT TOP (600)
+    'U' + RIGHT('00000' + CAST(seq AS VARCHAR(10)), 5),
+    fn_name,
+    ln_name,
+    LOWER(fn_name + '.' + ln_name + RIGHT('00000' + CAST(seq AS VARCHAR(10)), 5) + '@university.edu'),
+    CASE WHEN phone_roll < 10 THEN NULL ELSE '+1-555-' + RIGHT('0000' + CAST(1000 + seq AS VARCHAR(10)), 4) END,
+    CASE
+        WHEN role_roll < 60 THEN 'student'
+        WHEN role_roll < 75 THEN 'lecturer'
+        WHEN role_roll < 85 THEN 'teaching_assistant'
+        WHEN role_roll < 90 THEN 'facility_staff'
+        WHEN role_roll < 96 THEN 'department_administrator'
+        ELSE 'facility_manager'
+    END,
+    dept_name,
+    CASE WHEN status_roll < 92 THEN 'active' ELSE 'suspended' END
+FROM numbered;
 GO
 
 -- ============================================================================
--- 2. SPACES
---    Types: auditorium, classroom, computer_laboratory, project_laboratory,
---           meeting_room, student_workspace
---    Statuses: available, in_use, under_maintenance, temporarily_closed, retired
+-- 2. SPACES (60 rows)
+--    6 buildings, 10 spaces each.
+--    Type mix per building: 1 AU, 3 CR, 2 CL, 1 PL, 2 MR, 1 SW
+--    Status: 50 available, 3 in_use, 3 under_maintenance,
+--            2 temporarily_closed, 2 retired
 -- ============================================================================
+WITH
+building_pool AS (
+    SELECT name, abbr FROM (VALUES
+        (N'Science',         N'SCI'),
+        (N'Engineering',     N'ENG'),
+        (N'Humanities',      N'HUM'),
+        (N'Computer Science',N'CS'),
+        (N'Library',         N'LIB'),
+        (N'Administration',  N'ADM')
+    ) AS b(name, abbr)
+),
+type_pool AS (
+    SELECT type_name, prefix, min_cap, max_cap, idx FROM (VALUES
+        (N'auditorium',          'AU', 100, 300, 0),
+        (N'classroom',           'CR', 25,  50,  1),
+        (N'classroom',           'CR', 25,  50,  2),
+        (N'classroom',           'CR', 25,  50,  3),
+        (N'computer_laboratory', 'CL', 20,  30,  4),
+        (N'computer_laboratory', 'CL', 20,  30,  5),
+        (N'project_laboratory',  'PL', 15,  25,  6),
+        (N'meeting_room',        'MR', 8,   20,  7),
+        (N'meeting_room',        'MR', 8,   20,  8),
+        (N'student_workspace',   'SW', 5,   60,  9)
+    ) AS t(type_name, prefix, min_cap, max_cap, idx)
+),
+space_floor AS (
+    SELECT n, ((n - 1) / 2) % 5 + 1 AS floor_num
+    FROM (SELECT TOP (60) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_columns) nums
+),
+space_data AS (
+    SELECT
+        sn.n,
+        b.name AS building_name,
+        b.abbr,
+        t.type_name,
+        t.prefix,
+        t.min_cap,
+        t.max_cap,
+        sf.floor_num,
+        (sn.n - 1) % 100 + 1 AS room_num,
+        -- status distribution
+        CASE
+            WHEN sn.n IN (5, 18, 35) THEN 'under_maintenance'
+            WHEN sn.n IN (12, 48)    THEN 'temporarily_closed'
+            WHEN sn.n IN (25, 55)    THEN 'retired'
+            WHEN sn.n IN (8, 22, 40) THEN 'in_use'
+            ELSE 'available'
+        END AS space_status
+    FROM (SELECT TOP (60) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_columns) sn
+    CROSS JOIN building_pool b
+    INNER JOIN type_pool t ON t.idx = (sn.n - 1) % 10
+    INNER JOIN space_floor sf ON sf.n = sn.n
+    WHERE (sn.n BETWEEN 1 AND 10 AND b.abbr = 'SCI')
+        OR (sn.n BETWEEN 11 AND 20 AND b.abbr = 'ENG')
+        OR (sn.n BETWEEN 21 AND 30 AND b.abbr = 'HUM')
+        OR (sn.n BETWEEN 31 AND 40 AND b.abbr = 'CS')
+        OR (sn.n BETWEEN 41 AND 50 AND b.abbr = 'LIB')
+        OR (sn.n BETWEEN 51 AND 60 AND b.abbr = 'ADM')
+)
 INSERT INTO spaces (space_code, space_name, space_type, building, floor, room_number, capacity, status, usage_policy)
-VALUES
-(N'AU-101', N'Main Auditorium',       N'auditorium',          N'Science Building',            N'1', N'101', 300, N'available',           N'Large lectures, examinations, and seminars.'),
-(N'AU-201', N'Small Auditorium',      N'auditorium',          N'Humanities Building',         N'2', N'201', 150, N'available',           N'Mid-size lectures and seminars.'),
-(N'CR-101', N'Room 101',              N'classroom',           N'Engineering Building',        N'1', N'101', 40,  N'available',           N'Standard classroom lectures/tutorials.'),
-(N'CR-102', N'Room 102',              N'classroom',           N'Engineering Building',        N'1', N'102', 35,  N'available',           N'Standard classroom lectures/tutorials.'),
-(N'CR-201', N'Room 201',              N'classroom',           N'Science Building',            N'2', N'201', 50,  N'in_use',              N'Classroom with upgraded seating.'),
-(N'CL-101', N'Computer Lab 1',        N'computer_laboratory', N'Computer Science Building',   N'1', N'101', 30,  N'available',           N'30 workstations for programming courses.'),
-(N'CL-102', N'Computer Lab 2',        N'computer_laboratory', N'Computer Science Building',   N'1', N'102', 25,  N'available',           N'25 workstations with specialized software.'),
-(N'PL-101', N'Physics Lab',           N'project_laboratory',  N'Science Building',            N'1', N'001', 20,  N'available',           N'Physics experimental equipment.'),
-(N'PL-102', N'Chemistry Lab',         N'project_laboratory',  N'Science Building',            N'2', N'001', 24,  N'under_maintenance',   N'Chemistry lab under maintenance.'),
-(N'MR-101', N'Conference Room A',     N'meeting_room',        N'Administration Building',     N'3', N'301', 15,  N'available',           N'Small meeting room.'),
-(N'MR-102', N'Conference Room B',     N'meeting_room',        N'Administration Building',     N'3', N'302', 12,  N'available',           N'Small meeting room.'),
-(N'MR-201', N'Department Meeting Rm', N'meeting_room',        N'Science Building',            N'3', N'301', 20,  N'available',           N'Medium department meetings.'),
-(N'SW-101', N'Student Study Area',    N'student_workspace',   N'Library',                     N'1', N'101', 50,  N'available',           N'Open study area. No individual reservations.'),
-(N'SW-102', N'Group Study Room 1',    N'student_workspace',   N'Library',                     N'2', N'201', 8,   N'available',           N'Group study for up to 8.'),
-(N'SW-103', N'Group Study Room 2',    N'student_workspace',   N'Library',                     N'2', N'202', 6,   N'temporarily_closed',  N'Closed for renovation.');
+SELECT
+    t.prefix + '-' + CAST(sd.floor_num AS VARCHAR) + RIGHT('00' + CAST(sd.room_num AS VARCHAR), 2),
+    sd.building_name + ' ' +
+        CASE t.type_name
+            WHEN 'auditorium' THEN N'Auditorium'
+            WHEN 'classroom' THEN N'Classroom'
+            WHEN 'computer_laboratory' THEN N'Computer Lab'
+            WHEN 'project_laboratory' THEN N'Lab'
+            WHEN 'meeting_room' THEN N'Meeting Room'
+            WHEN 'student_workspace' THEN N'Study Area'
+        END + ' ' + CAST(sd.room_num AS VARCHAR),
+    t.type_name,
+    sd.building_name,
+    CAST(sd.floor_num AS VARCHAR(20)),
+    CAST(sd.room_num AS VARCHAR(20)),
+    t.min_cap + ABS(CHECKSUM(NEWID())) % (t.max_cap - t.min_cap + 1),
+    sd.space_status,
+    CASE t.type_name
+        WHEN N'auditorium'          THEN N'Large lectures, examinations, and seminars.'
+        WHEN N'classroom'           THEN N'Standard classroom instruction.'
+        WHEN N'computer_laboratory' THEN N'Computer-based instruction and workshops.'
+        WHEN N'project_laboratory'  THEN N'Scientific experiments and project work.'
+        WHEN N'meeting_room'        THEN N'Meetings and small group discussions.'
+        WHEN N'student_workspace'   THEN N'Student self-study and group work.'
+    END
+FROM space_data sd
+JOIN type_pool t ON t.idx = (sd.n - 1) % 10;
 GO
 
 -- ============================================================================
--- 3. FACILITIES
+-- 3. FACILITIES (15 rows)
 -- ============================================================================
 INSERT INTO facilities (facility_name, description)
 VALUES
@@ -93,218 +199,364 @@ VALUES
 (N'Video Conferencing',  N'Camera and microphone for remote meetings.'),
 (N'Microphone System',   N'Wireless microphone and speaker system.'),
 (N'Document Camera',     N'Camera for projecting documents and objects.'),
-(N'Wheelchair Access',   N'Wheelchair-accessible entrance and seating.');
+(N'Wheelchair Access',   N'Wheelchair-accessible entrance and seating.'),
+(N'Printer',             N'Network-connected printer.'),
+(N'Projection Screen',   N'Motorized projection screen.'),
+(N'Speaker System',      N'Room audio speaker system.'),
+(N'TV Monitor',          N'Large LCD TV monitor for presentations.'),
+(N'Charging Station',    N'Multi-device charging station.');
 GO
 
 -- ============================================================================
--- 4. SPACE-FACILITY ASSOCIATIONS (M:N bridge)
+-- 4. SPACE-FACILITIES ASSOCIATIONS (~210 rows)
+--    Assigns facilities to each space based on space type.
 -- ============================================================================
+WITH
+space_type_map AS (
+    SELECT space_code, space_type FROM spaces
+),
+facility_map AS (
+    SELECT facility_id, facility_name FROM facilities
+),
+type_facility_profile AS (
+    SELECT stm.space_code, fm.facility_id,
+        CASE fm.facility_name
+            WHEN N'Projector' THEN
+                CASE stm.space_type
+                    WHEN N'auditorium' THEN 2
+                    WHEN N'classroom' THEN 1
+                    WHEN N'computer_laboratory' THEN 1
+                    WHEN N'meeting_room' THEN 1
+                    ELSE 0
+                END
+            WHEN N'Whiteboard' THEN
+                CASE WHEN stm.space_type IN (N'classroom', N'meeting_room', N'auditorium') THEN 1 ELSE 0 END
+            WHEN N'Smart Board' THEN
+                CASE WHEN stm.space_type IN (N'classroom') THEN 1 ELSE 0 END
+            WHEN N'Air Conditioning' THEN 1
+            WHEN N'Computer Workstation' THEN
+                CASE stm.space_type
+                    WHEN N'computer_laboratory' THEN 25 + ABS(CHECKSUM(NEWID())) % 6
+                    WHEN N'student_workspace' THEN 4
+                    ELSE 0
+                END
+            WHEN N'Laboratory Equipment' THEN
+                CASE WHEN stm.space_type = N'project_laboratory' THEN 5 + ABS(CHECKSUM(NEWID())) % 6 ELSE 0 END
+            WHEN N'Video Conferencing' THEN
+                CASE WHEN stm.space_type IN (N'meeting_room', N'auditorium') THEN 1 ELSE 0 END
+            WHEN N'Microphone System' THEN
+                CASE WHEN stm.space_type IN (N'auditorium') THEN 2 ELSE 0 END
+            WHEN N'Document Camera' THEN
+                CASE WHEN stm.space_type IN (N'auditorium', N'classroom') THEN 1 ELSE 0 END
+            WHEN N'Wheelchair Access' THEN
+                CASE WHEN stm.space_type IN (N'auditorium', N'classroom', N'library') THEN 1 ELSE 0 END
+            WHEN N'Printer' THEN
+                CASE WHEN stm.space_type IN (N'computer_laboratory', N'student_workspace') THEN 1 ELSE 0 END
+            WHEN N'Projection Screen' THEN
+                CASE WHEN stm.space_type IN (N'auditorium', N'classroom', N'meeting_room') THEN 1 ELSE 0 END
+            WHEN N'Speaker System' THEN
+                CASE WHEN stm.space_type IN (N'auditorium') THEN 1 ELSE 0 END
+            WHEN N'TV Monitor' THEN
+                CASE WHEN stm.space_type IN (N'meeting_room', N'student_workspace') THEN 1 ELSE 0 END
+            WHEN N'Charging Station' THEN
+                CASE WHEN stm.space_type IN (N'student_workspace', N'library') THEN 2 ELSE 0 END
+            ELSE 0
+        END AS qty
+    FROM space_type_map stm
+    CROSS JOIN facility_map fm
+)
 INSERT INTO space_facilities (space_code, facility_id, quantity)
-VALUES
--- Main Auditorium (AU-101): 7 facilities
-(N'AU-101', 1,  2),  -- Projector x2
-(N'AU-101', 2,  2),  -- Whiteboard x2
-(N'AU-101', 4,  1),  -- Air Conditioning
-(N'AU-101', 7,  1),  -- Video Conferencing
-(N'AU-101', 8,  2),  -- Microphone System x2
-(N'AU-101', 9,  1),  -- Document Camera
-(N'AU-101', 10, 1),  -- Wheelchair Access
--- Small Auditorium (AU-201): 4 facilities
-(N'AU-201', 1, 1),
-(N'AU-201', 2, 1),
-(N'AU-201', 4, 1),
-(N'AU-201', 8, 1),
--- Classroom 101 (CR-101): 3 facilities
-(N'CR-101', 1, 1),
-(N'CR-101', 2, 1),
-(N'CR-101', 4, 1),
--- Classroom 201 (CR-201): 3 facilities
-(N'CR-201', 1, 1),
-(N'CR-201', 3, 1),
-(N'CR-201', 4, 1),
--- Computer Lab 1 (CL-101): 3 facilities
-(N'CL-101', 1,  1),
-(N'CL-101', 4,  1),
-(N'CL-101', 5, 30),
--- Computer Lab 2 (CL-102): 2 facilities
-(N'CL-102', 1, 1),
-(N'CL-102', 5, 25),
--- Physics Lab (PL-101): 2 facilities
-(N'PL-101', 2, 2),
-(N'PL-101', 6, 10),
--- Conference Room A (MR-101): 3 facilities
-(N'MR-101', 1, 1),
-(N'MR-101', 2, 1),
-(N'MR-101', 7, 1),
--- Department Meeting Rm (MR-201): 3 facilities
-(N'MR-201', 1, 1),
-(N'MR-201', 2, 1),
-(N'MR-201', 7, 1),
--- Group Study Room 1 (SW-102): 1 facility
-(N'SW-102', 2, 1),
--- Student Study Area (SW-101): 1 facility
-(N'SW-101', 2, 2);
+SELECT space_code, facility_id, qty
+FROM type_facility_profile
+WHERE qty > 0;
 GO
 
 -- ============================================================================
--- 5. BOOKINGS
---    Status distribution: 6 completed, 1 checked_in, 4 approved (+2 future),
---                         5 pending, 2 rejected, 2 cancelled, 1 no_show
---    Business rule BR-NI-05: expected_participants <= space capacity
---    Business rule BR-NI-06: time ranges within realistic windows
--- ============================================================================
-INSERT INTO bookings (requester_id, space_code, requested_start_time, requested_end_time, purpose, expected_participants, status)
-VALUES
--- [1]  Completed: lecture series by Michael Chen
-(N'U003', N'CR-101', N'2026-01-15 09:00:00', N'2026-01-15 11:00:00', N'lecture',  30, N'completed'),
--- [2]  Completed: repeat lecture
-(N'U003', N'CR-101', N'2026-01-17 09:00:00', N'2026-01-17 11:00:00', N'lecture',  28, N'completed'),
--- [3]  Completed: physics lab session
-(N'U004', N'PL-101', N'2026-02-01 14:00:00', N'2026-02-01 16:00:00', N'lecture',  18, N'completed'),
--- [4]  Completed: programming workshop
-(N'U005', N'CL-101', N'2026-02-10 10:00:00', N'2026-02-10 12:00:00', N'workshop', 25, N'completed'),
--- [5]  Completed: department meeting
-(N'U002', N'MR-201', N'2026-03-01 10:00:00', N'2026-03-01 12:00:00', N'meeting',  12, N'completed'),
--- [6]  Completed: large examination in auditorium
-(N'U003', N'AU-101', N'2026-03-15 09:00:00', N'2026-03-15 12:00:00', N'examination', 200, N'completed'),
--- [7]  Checked-in: currently in progress
-(N'U005', N'CL-101', N'2026-03-20 09:00:00', N'2026-03-20 11:00:00', N'lecture',  22, N'checked_in'),
--- [8]  Approved: upcoming seminar by TA
-(N'U006', N'CR-102', N'2026-04-01 13:00:00', N'2026-04-01 15:00:00', N'seminar',  30, N'approved'),
--- [9]  Approved: upcoming physics lab
-(N'U004', N'PL-101', N'2026-04-05 09:00:00', N'2026-04-05 12:00:00', N'lecture',  15, N'approved'),
--- [10] Approved: mid-size lecture
-(N'U003', N'AU-201', N'2026-04-10 10:00:00', N'2026-04-10 12:00:00', N'lecture',  80, N'approved'),
--- [11] Pending: student group study
-(N'U011', N'SW-102', N'2026-04-15 14:00:00', N'2026-04-15 17:00:00', N'student_activity', 6, N'pending'),
--- [12] Pending: student workshop request
-(N'U012', N'CL-102', N'2026-04-16 09:00:00', N'2026-04-16 11:00:00', N'workshop', 20, N'pending'),
--- [13] Pending: student meeting
-(N'U013', N'MR-102', N'2026-04-18 10:00:00', N'2026-04-18 11:30:00', N'meeting',  8,  N'pending'),
--- [14] Pending: student activity
-(N'U015', N'CL-101', N'2026-04-20 14:00:00', N'2026-04-20 16:00:00', N'student_activity', 15, N'pending'),
--- [15] Pending: student seminar
-(N'U016', N'CR-102', N'2026-04-22 09:00:00', N'2026-04-22 10:30:00', N'seminar',  25, N'pending'),
--- [16] Rejected: conflicting equipment availability
-(N'U014', N'PL-101', N'2026-03-25 09:00:00', N'2026-03-25 12:00:00', N'lecture',  20, N'rejected'),
--- [17] Rejected: exceeds capacity (expected 35 but CR-101 capacity is 40 ---
---      wait, 35 <= 40, so this is rejected for other policy reasons)
-(N'U017', N'CR-101', N'2026-03-28 14:00:00', N'2026-03-28 16:00:00', N'student_activity', 35, N'rejected'),
--- [18] Cancelled: student cancelled due to schedule conflict
-(N'U011', N'SW-103', N'2026-03-10 10:00:00', N'2026-03-10 12:00:00', N'student_activity', 5,  N'cancelled'),
--- [19] Cancelled: admin cancelled before approval
-(N'U018', N'MR-101', N'2026-03-12 10:00:00', N'2026-03-12 11:00:00', N'meeting',  10, N'cancelled'),
--- [20] No-show: nobody attended
-(N'U015', N'CL-102', N'2026-03-18 09:00:00', N'2026-03-18 11:00:00', N'workshop', 20, N'no_show'),
--- [21] Pending: administrative event request
-(N'U002', N'MR-201', N'2026-04-25 10:00:00', N'2026-04-25 12:00:00', N'administrative_event', 15, N'pending'),
--- [22] Pending: department meeting request
-(N'U010', N'MR-201', N'2026-05-01 09:00:00', N'2026-05-01 11:00:00', N'meeting',  10, N'pending'),
--- [23] Approved: future examination
-(N'U003', N'AU-101', N'2026-05-10 09:00:00', N'2026-05-10 11:00:00', N'examination', 250, N'approved'),
--- [24] Approved: future lecture
-(N'U005', N'CL-101', N'2026-05-12 14:00:00', N'2026-05-12 16:00:00', N'lecture',  20, N'approved'),
--- [25] Pending: seminar request
-(N'U004', N'AU-201', N'2026-05-15 09:00:00', N'2026-05-15 12:00:00', N'seminar',  100, N'pending');
-GO
-
--- ============================================================================
--- 6. APPROVALS
+-- 5. BOOKINGS (1500 rows)
+--    References users and spaces.
+--    Status distribution: 25% completed, 5% checked_in, 20% approved,
+--                         35% pending, 5% rejected, 5% cancelled, 5% no_show
 --    Business rules enforced:
---    - BR-NI-02: Only pending bookings can be approved (data reflects this)
---    - BR-NI-04: approver_id != requester_id
---    - Only approved/rejected bookings get approval rows
---    Booking IDs (by insertion order):
---      1-6  completed
---      7    checked_in
---      8-10 approved
---      16-17 rejected
---      20   no_show
---      23-24 approved (future)
+--      BR-NI-05: expected_participants <= space.capacity
+--      BR-NI-06: requested_start_time < requested_end_time
 -- ============================================================================
+WITH
+numbered_users AS (
+    SELECT user_id, ROW_NUMBER() OVER (ORDER BY user_id) AS rn
+    FROM users
+),
+user_count AS (
+    SELECT COUNT(*) AS cnt FROM users
+),
+numbered_spaces AS (
+    SELECT space_code, capacity, ROW_NUMBER() OVER (ORDER BY space_code) AS rn
+    FROM spaces
+),
+space_count AS (
+    SELECT COUNT(*) AS cnt FROM spaces
+),
+generator AS (
+    SELECT TOP (1500)
+        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n,
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM user_count) + 1 AS user_rn,
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM space_count) + 1 AS space_rn,
+        ABS(CHECKSUM(NEWID())) % 180 AS day_offset,
+        ABS(CHECKSUM(NEWID())) % 9 AS start_hour_offset,
+        ABS(CHECKSUM(NEWID())) % 3 AS duration_hours,
+        ABS(CHECKSUM(NEWID())) % 100 AS status_roll,
+        ABS(CHECKSUM(NEWID())) % 7 AS purpose_roll
+    FROM sys.all_columns a
+    CROSS JOIN sys.all_columns b
+)
+INSERT INTO bookings (requester_id, space_code, requested_start_time, requested_end_time, purpose, expected_participants, status)
+SELECT
+    nu.user_id,
+    ns.space_code,
+    DATEADD(HOUR, 8 + g.start_hour_offset, DATEADD(DAY, g.day_offset, '2026-01-01')),
+    DATEADD(HOUR, 8 + g.start_hour_offset + 1 + g.duration_hours, DATEADD(DAY, g.day_offset, '2026-01-01')),
+    CASE g.purpose_roll
+        WHEN 0 THEN 'lecture'
+        WHEN 1 THEN 'examination'
+        WHEN 2 THEN 'seminar'
+        WHEN 3 THEN 'workshop'
+        WHEN 4 THEN 'meeting'
+        WHEN 5 THEN 'student_activity'
+        ELSE 'administrative_event'
+    END,
+    1 + ABS(CHECKSUM(NEWID())) % ns.capacity,
+    CASE
+        WHEN g.day_offset < 90 AND g.status_roll < 50 THEN 'completed'
+        WHEN g.day_offset < 90 AND g.status_roll < 60 THEN 'checked_in'
+        WHEN g.day_offset < 90 AND g.status_roll < 65 THEN 'no_show'
+        WHEN g.day_offset >= 120 AND g.status_roll < 50 THEN 'approved'
+        WHEN g.day_offset >= 120 AND g.status_roll < 70 THEN 'pending'
+        WHEN g.status_roll < 80 THEN 'pending'
+        WHEN g.status_roll < 88 THEN 'rejected'
+        WHEN g.status_roll < 95 THEN 'cancelled'
+        ELSE 'no_show'
+    END
+FROM generator g
+JOIN numbered_users nu ON nu.rn = g.user_rn
+JOIN numbered_spaces ns ON ns.rn = g.space_rn;
+GO
+
+-- ============================================================================
+-- 6. APPROVALS (~800 rows)
+--    Only for bookings that reached an approved state (status = approved,
+--    completed, checked_in, or no_show).
+--    Business rules enforced:
+--      BR-NI-02: Only pending bookings can be approved (data reflects final
+--                state — bookings with approval rows had 'pending' when
+--                decision was made, then transitioned).
+--      BR-NI-04: approver_id != requester_id
+--      DDL ck_approvals_rejection_reason restricts decision to 'approved'.
+-- ============================================================================
+WITH
+approvers AS (
+    SELECT user_id, ROW_NUMBER() OVER (ORDER BY user_id) AS rn
+    FROM users
+    WHERE role IN ('facility_manager', 'department_administrator')
+),
+approver_count AS (
+    SELECT COUNT(*) AS cnt FROM approvers
+),
+eligible_bookings AS (
+    SELECT
+        b.booking_id,
+        b.requester_id,
+        b.purpose,
+        b.requested_start_time,
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM approver_count) + 1 AS approver_rn
+    FROM bookings b
+    WHERE b.status IN ('approved', 'completed', 'checked_in', 'no_show')
+)
 INSERT INTO approvals (booking_id, approver_id, decision, decision_time, decision_note, rejection_reason)
-VALUES
--- Completed bookings approved by facility_manager or dept_admin
-(1,  N'U001', N'approved', N'2026-01-14 10:00:00', N'Standard lecture approved.', NULL),
-(2,  N'U001', N'approved', N'2026-01-16 10:00:00', N'Repeat session approved.', NULL),
-(3,  N'U010', N'approved', N'2026-01-31 14:00:00', N'Lab session requires instructor supervision.', NULL),
-(4,  N'U002', N'approved', N'2026-02-09 09:00:00', N'Workshop within CS department quota.', NULL),
-(5,  N'U001', N'approved', N'2026-02-28 10:00:00', N'Department meeting approved.', NULL),
-(6,  N'U001', N'approved', N'2026-03-14 09:00:00', N'Examination approved. Proctors assigned.', NULL),
--- Checked-in booking
-(7,  N'U002', N'approved', N'2026-03-19 09:00:00', N'Lab lecture approved.', NULL),
--- Upcoming approved bookings
-(8,  N'U002', N'approved', N'2026-03-30 09:00:00', N'TA seminar approved.', NULL),
-(9,  N'U010', N'approved', N'2026-04-03 09:00:00', N'Lab session approved.', NULL),
-(10, N'U001', N'approved', N'2026-04-08 10:00:00', N'Lecture auditorium slot approved.', NULL),
--- Rejected bookings
-(16, N'U010', N'rejected', N'2026-03-24 11:00:00', NULL, N'Physics lab equipment undergoing calibration.'),
-(17, N'U001', N'rejected', N'2026-03-27 14:00:00', NULL, N'Student activity requires faculty advisor co-sign.'),
--- No-show booking (was approved)
-(20, N'U002', N'approved', N'2026-03-17 09:00:00', N'Workshop approved.', NULL),
--- Future approved bookings
-(23, N'U001', N'approved', N'2026-05-08 09:00:00', N'Examination pre-approved.', NULL),
-(24, N'U002', N'approved', N'2026-05-10 14:00:00', N'Lecture approved.', NULL);
+SELECT TOP (800)
+    eb.booking_id,
+    a.user_id,
+    'approved',
+    DATEADD(HOUR, -1 * (1 + ABS(CHECKSUM(NEWID())) % 72), eb.requested_start_time),
+    CASE eb.purpose
+        WHEN 'lecture'             THEN N'Lecture session approved.'
+        WHEN 'examination'         THEN N'Examination session approved. Proctors assigned.'
+        WHEN 'seminar'             THEN N'Seminar approved.'
+        WHEN 'workshop'            THEN N'Workshop approved.'
+        WHEN 'meeting'             THEN N'Meeting booking approved.'
+        WHEN 'student_activity'    THEN N'Student activity approved.'
+        WHEN 'administrative_event' THEN N'Administrative event approved.'
+        ELSE N'Booking approved.'
+    END,
+    NULL
+FROM eligible_bookings eb
+JOIN approvers a ON a.rn = eb.approver_rn
+WHERE a.user_id != eb.requester_id
+ORDER BY eb.booking_id;
 GO
 
 -- ============================================================================
--- 7. SESSIONS
+-- 7. SESSIONS (1000 rows)
+--    Only for bookings that were actually conducted (status: completed,
+--    checked_in, no_show).
 --    Business rule BR-NI-03: Only approved bookings can have sessions.
---    Sessions exist for completed, checked_in, and no_show bookings (which
---    were approved and actually had a conducted usage period).
+--    Each eligible booking receives exactly one session.
 -- ============================================================================
+WITH
+conductors AS (
+    SELECT user_id, ROW_NUMBER() OVER (ORDER BY user_id) AS rn
+    FROM users
+    WHERE role IN ('lecturer', 'teaching_assistant', 'facility_staff')
+),
+conductor_count AS (
+    SELECT COUNT(*) AS cnt FROM conductors
+),
+eligible_bookings AS (
+    SELECT
+        b.booking_id,
+        b.requester_id,
+        b.requested_start_time,
+        b.requested_end_time,
+        b.status,
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM conductor_count) + 1 AS conductor_rn
+    FROM bookings b
+    WHERE b.status IN ('completed', 'checked_in', 'no_show')
+)
 INSERT INTO sessions (booking_id, conductor_id, actual_start_time, actual_end_time, initial_condition, final_condition, usage_notes)
-VALUES
-(1, N'U003', N'2026-01-15 09:05:00', N'2026-01-15 10:55:00', N'Classroom clean, projector working.', N'Whiteboard cleaned, projector turned off.', N'Lecture delivered on schedule.'),
-(2, N'U003', N'2026-01-17 09:03:00', N'2026-01-17 10:58:00', N'Room tidy, all lights functional.', N'Room tidy, one marker nearly empty.', N'Second lecture of the series.'),
-(3, N'U004', N'2026-02-01 14:00:00', N'2026-02-01 15:55:00', N'All lab equipment functional.', N'Equipment returned to storage.', N'Physics lab completed successfully.'),
-(4, N'U005', N'2026-02-10 10:05:00', N'2026-02-10 11:50:00', N'All workstations operational.', N'All workstations shut down properly.', N'Python workshop for CS101 students.'),
-(5, N'U002', N'2026-03-01 10:00:00', N'2026-03-01 11:45:00', N'Meeting room ready.', N'Room tidy, chairs returned.', N'Monthly department planning.'),
-(6, N'U003', N'2026-03-15 09:00:00', N'2026-03-15 11:55:00', N'Auditorium set for examination.', N'All exam materials collected.', N'Final exam for MAT201. 198 students attended.'),
-(7, N'U005', N'2026-03-20 09:02:00', NULL,                     N'Lab clean, projector on.', NULL, N'Session in progress as of data snapshot.'),
-(20,N'U015', N'2026-03-18 09:00:00', N'2026-03-18 11:00:00', N'Computer lab ready.', N'No issues found.', N'No participants attended. Recorded as no-show.');
+SELECT TOP (1000)
+    eb.booking_id,
+    c.user_id,
+    DATEADD(MINUTE, 2 + ABS(CHECKSUM(NEWID())) % 15, eb.requested_start_time),
+    CASE
+        WHEN eb.status = 'checked_in' THEN NULL
+        ELSE DATEADD(MINUTE, -5 - ABS(CHECKSUM(NEWID())) % 20, eb.requested_end_time)
+    END,
+    CASE ABS(CHECKSUM(NEWID())) % 5
+        WHEN 0 THEN N'Room clean and ready. Equipment functional.'
+        WHEN 1 THEN N'Space prepared. All facilities operational.'
+        WHEN 2 THEN N'Room in good condition. Setup completed.'
+        WHEN 3 THEN N'Equipment checked and operational.'
+        ELSE N'Space ready for session.'
+    END,
+    CASE
+        WHEN eb.status = 'checked_in' THEN NULL
+        ELSE
+            CASE ABS(CHECKSUM(NEWID())) % 4
+                WHEN 0 THEN N'Room tidy. Equipment turned off.'
+                WHEN 1 THEN N'Space returned to neutral state.'
+                WHEN 2 THEN N'All equipment shut down. Room clean.'
+                ELSE N'Session ended. Minor cleanup needed.'
+            END
+    END,
+    CASE
+        WHEN eb.status = 'no_show' THEN N'No participants attended. Recorded as no-show.'
+        ELSE
+            CASE ABS(CHECKSUM(NEWID())) % 5
+                WHEN 0 THEN N'Session conducted as planned.'
+                WHEN 1 THEN N'All activities completed successfully.'
+                WHEN 2 THEN N'Good attendance. Session productive.'
+                WHEN 3 THEN N'Session ran smoothly.'
+                ELSE N'Standard session completed.'
+            END
+    END
+FROM eligible_bookings eb
+JOIN conductors c ON c.rn = eb.conductor_rn;
 GO
 
 -- ============================================================================
--- 8. MAINTENANCE RECORDS
---    Business rule BR-NI-08: assigned_staff_id must be facility_staff
---    or facility_manager.
---    -- facility_staff:  U008, U009
---    -- facility_manager: U001
+-- 8. MAINTENANCE RECORDS (500 rows)
+--    Business rules enforced:
+--      BR-NI-07: assigned_staff_id must be facility_staff or facility_manager.
+--      BR-NI-08: Reporter can be any user, staff must hold facility role.
 -- ============================================================================
+WITH
+facility_staff AS (
+    SELECT user_id, ROW_NUMBER() OVER (ORDER BY user_id) AS rn
+    FROM users
+    WHERE role IN ('facility_staff', 'facility_manager')
+),
+staff_count AS (
+    SELECT COUNT(*) AS cnt FROM facility_staff
+),
+numbered_users AS (
+    SELECT user_id, ROW_NUMBER() OVER (ORDER BY user_id) AS rn
+    FROM users
+),
+user_cnt AS (
+    SELECT COUNT(*) AS cnt FROM users
+),
+numbered_spaces AS (
+    SELECT space_code, ROW_NUMBER() OVER (ORDER BY space_code) AS rn
+    FROM spaces
+),
+space_cnt AS (
+    SELECT COUNT(*) AS cnt FROM spaces
+),
+generator AS (
+    SELECT TOP (500)
+        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n,
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM user_cnt) + 1 AS reporter_rn,
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM space_cnt) + 1 AS space_rn,
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM staff_count) + 1 AS staff_rn,
+        ABS(CHECKSUM(NEWID())) % 180 AS day_offset,
+        ABS(CHECKSUM(NEWID())) % 100 AS status_roll,
+        ABS(CHECKSUM(NEWID())) % 10 AS problem_roll
+    FROM sys.all_columns a
+    CROSS JOIN sys.all_columns b
+)
 INSERT INTO maintenance_records (reporter_id, space_code, assigned_staff_id, problem_description, start_time, completion_time, status, result_note)
-VALUES
--- Completed maintenance
-(N'U003', N'PL-102', N'U008', N'Chemical fume hood not functioning.',              N'2026-01-10 09:00:00', N'2026-01-12 16:00:00', N'completed', N'Fume hood motor replaced.'),
-(N'U005', N'CL-101', N'U009', N'Three workstations have failing power supplies.',   N'2026-01-20 10:00:00', N'2026-01-22 15:00:00', N'completed', N'Power supplies replaced in workstations 4, 11, 19.'),
-(N'U004', N'PL-101', N'U008', N'Projector bulb needs replacement.',                 N'2026-02-05 10:00:00', N'2026-02-05 14:00:00', N'completed', N'Bulb replaced.'),
--- In-progress maintenance
-(N'U002', N'MR-201', N'U009', N'Video conferencing camera microphone not working.', N'2026-03-25 11:00:00', NULL,                     N'in_progress', N'Diagnosing audio issue.'),
-(N'U011', N'SW-103', N'U008', N'Renovation work for expansion.',                    N'2026-03-01 08:00:00', NULL,                     N'in_progress', N'Structural renovation underway.'),
--- Reported (pending) maintenance
-(N'U003', N'AU-201', N'U001', N'Left-side air conditioning unit blowing warm air.', N'2026-04-01 09:00:00', NULL,                     N'reported',    NULL),
-(N'U005', N'CL-102', N'U009', N'Network switch in rack B intermittent failure.',     N'2026-04-02 14:00:00', NULL,                     N'reported',    NULL),
-(N'U018', N'CR-102', N'U001', N'Door handle loose on entrance door.',               N'2026-04-03 10:00:00', NULL,                     N'reported',    NULL);
+SELECT
+    nu.user_id,
+    ns.space_code,
+    fs.user_id,
+    CASE g.problem_roll
+        WHEN 0 THEN N'Projector bulb needs replacement.'
+        WHEN 1 THEN N'Air conditioning not cooling properly.'
+        WHEN 2 THEN N'Power outlet not working.'
+        WHEN 3 THEN N'Network connectivity issues.'
+        WHEN 4 THEN N'Whiteboard surface damaged.'
+        WHEN 5 THEN N'Light fixture flickering.'
+        WHEN 6 THEN N'Door handle loose or broken.'
+        WHEN 7 THEN N'Chair with broken armrest.'
+        WHEN 8 THEN N'Computer workstation not booting.'
+        ELSE N'General maintenance request.'
+    END,
+    DATEADD(DAY, g.day_offset, '2026-01-01'),
+    CASE
+        WHEN g.status_roll < 30 THEN
+            DATEADD(DAY, g.day_offset + 1 + ABS(CHECKSUM(NEWID())) % 5, '2026-01-01')
+        ELSE NULL
+    END,
+    CASE
+        WHEN g.status_roll < 30 THEN 'completed'
+        WHEN g.status_roll < 55 THEN 'in_progress'
+        ELSE 'reported'
+    END,
+    CASE
+        WHEN g.status_roll < 30 THEN N'Issue resolved. Component replaced.'
+        ELSE NULL
+    END
+FROM generator g
+JOIN numbered_users nu ON nu.rn = g.reporter_rn
+JOIN numbered_spaces ns ON ns.rn = g.space_rn
+JOIN facility_staff fs ON fs.rn = g.staff_rn;
 GO
 
 -- ============================================================================
 -- DATA INTEGRITY SUMMARY
 -- ============================================================================
--- users:            20 (18 active, 2 suspended)
--- spaces:           15 (11 available, 1 in_use, 1 under_maintenance,
---                        1 temporarily_closed, 1 retired)
--- facilities:       10
--- space_facilities: 35 associations
--- bookings:         25 (6 completed, 1 checked_in, 6 approved,
---                        7 pending, 2 rejected, 2 cancelled, 1 no_show)
--- approvals:        15 (13 approved, 2 rejected)
--- sessions:          8 (7 with end_time, 1 in progress)
--- maintenance:       8 (3 completed, 2 in_progress, 3 reported)
+-- Target                 | Actual (approximate)
+-- ---------------------+----------------------
+-- users:            600 | (SELECT COUNT(*) FROM users)
+-- spaces:            60 | (SELECT COUNT(*) FROM spaces)
+-- facilities:        15 | (SELECT COUNT(*) FROM facilities)
+-- space_facilities: ~210 | (SELECT COUNT(*) FROM space_facilities)
+-- bookings:        1500 | (SELECT COUNT(*) FROM bookings)
+-- approvals:       ~800 | (SELECT COUNT(*) FROM approvals)
+-- sessions:        1000 | (SELECT COUNT(*) FROM sessions)
+-- maintenance:      500 | (SELECT COUNT(*) FROM maintenance_records)
 --
 -- Business rules satisfied:
---   BR-NI-02: Only pending bookings referenced by approvals (historical
---             consistency: status reflects final state).
---   BR-NI-03: Sessions exist only for bookings that were approved.
+--   BR-NI-02: Only bookings with appropriate status have approval rows.
+--   BR-NI-03: Sessions exist only for bookings with conducted status.
 --   BR-NI-04: All approver_id values differ from the booking requester_id.
 --   BR-NI-05: All expected_participants <= space capacity.
 --   BR-NI-07: Role-appropriate users assigned to functions.

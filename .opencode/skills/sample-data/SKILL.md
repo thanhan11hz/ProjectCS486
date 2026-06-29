@@ -117,14 +117,42 @@ To efficiently generate varied data, SQL Server’s built-in functions should be
 
 ## Step 6: Use Set-Based Operations for Bulk Data Generation
 
-Instead of inserting rows one by one, use **set-based operations** to generate large volumes of data efficiently.
+You MUST generate large datasets using set-based operations.
 
-Techniques include:
+Requirements:
 
-* `INSERT INTO ... SELECT`
-* Using system tables such as `sys.objects` to generate row combinations
-* `CROSS JOIN` to scale row counts exponentially
-* `TOP (N)` to control dataset size
+* Generate **hundreds to thousands of rows per main table**
+* Avoid row-by-row inserts
+* Use:
+  - `TOP (1000)` or more
+  - `CROSS JOIN` to scale row counts
+  - system tables (`sys.objects`) as row sources
+
+Example pattern:
+
+INSERT INTO Users (...)
+SELECT TOP (1000)
+    ...
+FROM sys.objects a
+CROSS JOIN sys.objects b;
+
+---
+
+## Step 6.5: Enforce Minimum Data Volume
+
+The dataset must be large enough to support realistic testing.
+
+Requirements:
+
+* Each core entity table must contain **at least 500–1000 rows**
+* Smaller lookup/reference tables may contain fewer rows where appropriate
+* Relationship tables must scale proportionally (e.g., bookings > users)
+
+Guidelines:
+
+* Use `TOP (1000)` or higher in set-based generation queries
+* Use `CROSS JOIN` to multiply row counts when necessary
+* Avoid small demo datasets (e.g., 10–50 rows)
 
 ---
 
@@ -176,6 +204,25 @@ The final script should be fully executable and capable of populating the databa
 * Never skip validation or business rules
 * Prioritize correctness before scale
 * Ensure the final script is clean, efficient, and reusable
+* The dataset must contain **at least 500 rows for each main transactional table**
+* Solutions generating fewer than 100 rows per table are NOT acceptable
+
+---
+
+## Data Volume Targets
+
+The generated dataset should approximately follow:
+
+* Users: 500–1000 rows
+* Spaces: 50-100 rows
+* Facilities: 10-20 rows
+* Bookings: 1000–3000 rows
+* Sessions: 1000–3000 rows
+* Approvals: 500-2000 rows
+* Maintenance: 500-1000 rows
+* Bridge tables: proportional to relationships
+
+These targets must be met unless constrained by business logic.
 
 ---
 
