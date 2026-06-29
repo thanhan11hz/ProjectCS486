@@ -3,7 +3,7 @@
 -- Project     : CS486 Booking System (Group 7)
 -- DBMS        : Microsoft SQL Server (T-SQL)
 -- Description : Bulk-generated realistic sample data using set-based operations.
---               Each core entity table meets minimum row targets (500-3000 rows).
+--               Satisfies domain-specific constraints for a CS university.
 -- Artifact    : outputs/06-sample-data-G7.sql
 -- Prerequisite: outputs/05-db-implementation-G7.sql
 -- ============================================================================
@@ -23,8 +23,26 @@ GO
 --   8. maintenance_records (FK: users, spaces)
 -- ============================================================================
 
+-- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+-- NOTE: The DDL constraint `ck_approvals_rejection_reason` on the approvals
+-- table enforces `decision <> N'rejected'`, which prevents inserting any row
+-- with decision='rejected'. Consequently, rejection reasons cannot be stored
+-- in the approvals table for rejected bookings. The bookings table itself has
+-- no rejection_reason column. Rejected bookings (status='rejected') exist in
+-- the bookings table without an associated approval record.
+--
+-- This is a known DDL constraint conflict. To fully satisfy the sample data
+-- requirements (RejectReason NON-NULL for rejected bookings), the DDL
+-- constraint `ck_approvals_rejection_reason` needs to be revised to:
+--   CHECK (
+--       (decision = N'rejected' AND rejection_reason IS NOT NULL)
+--       OR (decision = N'approved' AND rejection_reason IS NULL)
+--   )
+-- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 -- ============================================================================
 -- 1. USERS (600 rows)
+--    Departments restricted to Computer Science domains only.
 --    Roles: student (60%), lecturer (15%), teaching_assistant (10%),
 --           facility_staff (5%), department_administrator (6%),
 --           facility_manager (4%)
@@ -38,7 +56,13 @@ first_name_pool AS (
         (N'William'),(N'Barbara'),(N'Richard'),(N'Susan'),(N'Joseph'),
         (N'Jessica'),(N'Thomas'),(N'Sarah'),(N'Christopher'),(N'Karen'),
         (N'Daniel'),(N'Nancy'),(N'Matthew'),(N'Lisa'),(N'Anthony'),
-        (N'Margaret'),(N'Mark'),(N'Betty'),(N'Donald'),(N'Sandra')
+        (N'Margaret'),(N'Mark'),(N'Betty'),(N'Donald'),(N'Sandra'),
+        (N'Charles'),(N'Ashley'),(N'Steven'),(N'Dorothy'),(N'Andrew'),
+        (N'Kimberly'),(N'Paul'),(N'Donna'),(N'Joshua'),(N'Carol'),
+        (N'Kevin'),(N'Michelle'),(N'Brian'),(N'Amanda'),(N'Jason'),
+        (N'Melissa'),(N'George'),(N'Deborah'),(N'Kenneth'),(N'Stephanie'),
+        (N'Edward'),(N'Rebecca'),(N'Ronald'),(N'Sharon'),(N'Timothy'),
+        (N'Laura'),(N'Angela'),(N'Emily'),(N'Jeffrey'),(N'Helen')
     ) AS fn(name)
 ),
 last_name_pool AS (
@@ -46,14 +70,17 @@ last_name_pool AS (
         (N'Smith'),(N'Johnson'),(N'Williams'),(N'Brown'),(N'Jones'),
         (N'Garcia'),(N'Miller'),(N'Davis'),(N'Rodriguez'),(N'Martinez'),
         (N'Hernandez'),(N'Lopez'),(N'Gonzalez'),(N'Wilson'),(N'Anderson'),
-        (N'Thomas'),(N'Taylor'),(N'Moore'),(N'Jackson'),(N'Martin')
+        (N'Thomas'),(N'Taylor'),(N'Moore'),(N'Jackson'),(N'Martin'),
+        (N'Lee'),(N'Perez'),(N'Thompson'),(N'White'),(N'Harris'),
+        (N'Sanchez'),(N'Clark'),(N'Ramirez'),(N'Lewis'),(N'Robinson')
     ) AS ln(name)
 ),
 department_pool AS (
     SELECT name FROM (VALUES
-        (N'Computer Science'),(N'Mathematics'),(N'Physics'),(N'Chemistry'),
-        (N'Biology'),(N'Engineering'),(N'English'),(N'History'),
-        (N'Psychology'),(N'Economics'),(N'Philosophy'),(N'Art')
+        (N'Computer Science'),(N'Software Engineering'),(N'Data Science'),
+        (N'Artificial Intelligence'),(N'Cybersecurity'),
+        (N'Information Systems'),(N'Computer Networks'),
+        (N'Human-Computer Interaction')
     ) AS d(name)
 ),
 numbered AS (
@@ -91,33 +118,27 @@ GO
 
 -- ============================================================================
 -- 2. SPACES (60 rows)
---    6 buildings, 10 spaces each.
+--    6 buildings (A-F), 10 spaces each.
 --    Type mix per building: 1 AU, 3 CR, 2 CL, 1 PL, 2 MR, 1 SW
 --    Status: 50 available, 3 in_use, 3 under_maintenance,
 --            2 temporarily_closed, 2 retired
+--    Capacity: always divisible by 5; classrooms 40-50, auditoriums 200-300.
 -- ============================================================================
 WITH
 building_pool AS (
-    SELECT name, abbr FROM (VALUES
-        (N'Science',         N'SCI'),
-        (N'Engineering',     N'ENG'),
-        (N'Humanities',      N'HUM'),
-        (N'Computer Science',N'CS'),
-        (N'Library',         N'LIB'),
-        (N'Administration',  N'ADM')
-    ) AS b(name, abbr)
+    SELECT letter FROM (VALUES ('A'),('B'),('C'),('D'),('E'),('F')) AS b(letter)
 ),
 type_pool AS (
     SELECT type_name, prefix, min_cap, max_cap, idx FROM (VALUES
-        (N'auditorium',          'AU', 100, 300, 0),
-        (N'classroom',           'CR', 25,  50,  1),
-        (N'classroom',           'CR', 25,  50,  2),
-        (N'classroom',           'CR', 25,  50,  3),
+        (N'auditorium',          'AU', 200, 300, 0),
+        (N'classroom',           'CR', 40,  50,  1),
+        (N'classroom',           'CR', 40,  50,  2),
+        (N'classroom',           'CR', 40,  50,  3),
         (N'computer_laboratory', 'CL', 20,  30,  4),
         (N'computer_laboratory', 'CL', 20,  30,  5),
         (N'project_laboratory',  'PL', 15,  25,  6),
-        (N'meeting_room',        'MR', 8,   20,  7),
-        (N'meeting_room',        'MR', 8,   20,  8),
+        (N'meeting_room',        'MR', 10,  20,  7),
+        (N'meeting_room',        'MR', 10,  20,  8),
         (N'student_workspace',   'SW', 5,   60,  9)
     ) AS t(type_name, prefix, min_cap, max_cap, idx)
 ),
@@ -128,15 +149,13 @@ space_floor AS (
 space_data AS (
     SELECT
         sn.n,
-        b.name AS building_name,
-        b.abbr,
+        b.letter AS building_letter,
         t.type_name,
         t.prefix,
         t.min_cap,
         t.max_cap,
         sf.floor_num,
         (sn.n - 1) % 100 + 1 AS room_num,
-        -- status distribution
         CASE
             WHEN sn.n IN (5, 18, 35) THEN 'under_maintenance'
             WHEN sn.n IN (12, 48)    THEN 'temporarily_closed'
@@ -148,17 +167,17 @@ space_data AS (
     CROSS JOIN building_pool b
     INNER JOIN type_pool t ON t.idx = (sn.n - 1) % 10
     INNER JOIN space_floor sf ON sf.n = sn.n
-    WHERE (sn.n BETWEEN 1 AND 10 AND b.abbr = 'SCI')
-        OR (sn.n BETWEEN 11 AND 20 AND b.abbr = 'ENG')
-        OR (sn.n BETWEEN 21 AND 30 AND b.abbr = 'HUM')
-        OR (sn.n BETWEEN 31 AND 40 AND b.abbr = 'CS')
-        OR (sn.n BETWEEN 41 AND 50 AND b.abbr = 'LIB')
-        OR (sn.n BETWEEN 51 AND 60 AND b.abbr = 'ADM')
+    WHERE (sn.n BETWEEN 1 AND 10 AND b.letter = 'A')
+        OR (sn.n BETWEEN 11 AND 20 AND b.letter = 'B')
+        OR (sn.n BETWEEN 21 AND 30 AND b.letter = 'C')
+        OR (sn.n BETWEEN 31 AND 40 AND b.letter = 'D')
+        OR (sn.n BETWEEN 41 AND 50 AND b.letter = 'E')
+        OR (sn.n BETWEEN 51 AND 60 AND b.letter = 'F')
 )
 INSERT INTO spaces (space_code, space_name, space_type, building, floor, room_number, capacity, status, usage_policy)
 SELECT
-    t.prefix + '-' + CAST(sd.floor_num AS VARCHAR) + RIGHT('00' + CAST(sd.room_num AS VARCHAR), 2),
-    sd.building_name + ' ' +
+    sd.building_letter + '-' + t.prefix + '-' + CAST(sd.room_num AS VARCHAR),
+    N'Building ' + sd.building_letter + ' ' +
         CASE t.type_name
             WHEN 'auditorium' THEN N'Auditorium'
             WHEN 'classroom' THEN N'Classroom'
@@ -168,10 +187,10 @@ SELECT
             WHEN 'student_workspace' THEN N'Study Area'
         END + ' ' + CAST(sd.room_num AS VARCHAR),
     t.type_name,
-    sd.building_name,
+    sd.building_letter,
     CAST(sd.floor_num AS VARCHAR(20)),
     CAST(sd.room_num AS VARCHAR(20)),
-    t.min_cap + ABS(CHECKSUM(NEWID())) % (t.max_cap - t.min_cap + 1),
+    ((t.min_cap / 5) + ABS(CHECKSUM(NEWID())) % ((t.max_cap - t.min_cap) / 5 + 1)) * 5,
     sd.space_status,
     CASE t.type_name
         WHEN N'auditorium'          THEN N'Large lectures, examinations, and seminars.'
@@ -249,7 +268,7 @@ type_facility_profile AS (
             WHEN N'Document Camera' THEN
                 CASE WHEN stm.space_type IN (N'auditorium', N'classroom') THEN 1 ELSE 0 END
             WHEN N'Wheelchair Access' THEN
-                CASE WHEN stm.space_type IN (N'auditorium', N'classroom', N'library') THEN 1 ELSE 0 END
+                CASE WHEN stm.space_type IN (N'auditorium', N'classroom') THEN 1 ELSE 0 END
             WHEN N'Printer' THEN
                 CASE WHEN stm.space_type IN (N'computer_laboratory', N'student_workspace') THEN 1 ELSE 0 END
             WHEN N'Projection Screen' THEN
@@ -259,7 +278,7 @@ type_facility_profile AS (
             WHEN N'TV Monitor' THEN
                 CASE WHEN stm.space_type IN (N'meeting_room', N'student_workspace') THEN 1 ELSE 0 END
             WHEN N'Charging Station' THEN
-                CASE WHEN stm.space_type IN (N'student_workspace', N'library') THEN 2 ELSE 0 END
+                CASE WHEN stm.space_type IN (N'student_workspace') THEN 2 ELSE 0 END
             ELSE 0
         END AS qty
     FROM space_type_map stm
@@ -272,12 +291,18 @@ WHERE qty > 0;
 GO
 
 -- ============================================================================
--- 5. BOOKINGS (1500 rows)
+-- 5. BOOKINGS (3500 rows)
 --    References users and spaces.
---    Status distribution: 25% completed, 5% checked_in, 20% approved,
---                         35% pending, 5% rejected, 5% cancelled, 5% no_show
+--    Status distribution:
+--      Approved:  60%  (60-70% per skill requirement)
+--      Completed: 27%  (20-30% per skill requirement)
+--      Rejected:   8%  (≥5-10% per skill requirement)
+--      Pending:    2%
+--      Cancelled:  1%
+--      Checked_in: 1%
+--      No_show:    1%
 --    Business rules enforced:
---      BR-NI-05: expected_participants <= space.capacity
+--      BR-NI-05: expected_participants <= space.capacity (divisible by 5)
 --      BR-NI-06: requested_start_time < requested_end_time
 -- ============================================================================
 WITH
@@ -296,7 +321,7 @@ space_count AS (
     SELECT COUNT(*) AS cnt FROM spaces
 ),
 generator AS (
-    SELECT TOP (1500)
+    SELECT TOP (3500)
         ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM user_count) + 1 AS user_rn,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM space_count) + 1 AS space_rn,
@@ -323,16 +348,14 @@ SELECT
         WHEN 5 THEN 'student_activity'
         ELSE 'administrative_event'
     END,
-    1 + ABS(CHECKSUM(NEWID())) % ns.capacity,
+    (1 + ABS(CHECKSUM(NEWID())) % (ns.capacity / 5)) * 5,
     CASE
-        WHEN g.day_offset < 90 AND g.status_roll < 50 THEN 'completed'
-        WHEN g.day_offset < 90 AND g.status_roll < 60 THEN 'checked_in'
-        WHEN g.day_offset < 90 AND g.status_roll < 65 THEN 'no_show'
-        WHEN g.day_offset >= 120 AND g.status_roll < 50 THEN 'approved'
-        WHEN g.day_offset >= 120 AND g.status_roll < 70 THEN 'pending'
-        WHEN g.status_roll < 80 THEN 'pending'
-        WHEN g.status_roll < 88 THEN 'rejected'
-        WHEN g.status_roll < 95 THEN 'cancelled'
+        WHEN g.status_roll < 27 THEN 'completed'
+        WHEN g.status_roll < 87 THEN 'approved'
+        WHEN g.status_roll < 95 THEN 'rejected'
+        WHEN g.status_roll < 97 THEN 'pending'
+        WHEN g.status_roll < 98 THEN 'cancelled'
+        WHEN g.status_roll < 99 THEN 'checked_in'
         ELSE 'no_show'
     END
 FROM generator g
@@ -341,15 +364,14 @@ JOIN numbered_spaces ns ON ns.rn = g.space_rn;
 GO
 
 -- ============================================================================
--- 6. APPROVALS (~800 rows)
---    Only for bookings that reached an approved state (status = approved,
---    completed, checked_in, or no_show).
+-- 6. APPROVALS (1500 rows)
+--    Only for bookings with status in (approved, completed, checked_in,
+--    no_show). All decisions are 'approved' because the DDL constraint
+--    `ck_approvals_rejection_reason` prevents 'rejected' decisions.
 --    Business rules enforced:
 --      BR-NI-02: Only pending bookings can be approved (data reflects final
---                state — bookings with approval rows had 'pending' when
---                decision was made, then transitioned).
+--                state — bookings had 'pending' when decision was made).
 --      BR-NI-04: approver_id != requester_id
---      DDL ck_approvals_rejection_reason restricts decision to 'approved'.
 -- ============================================================================
 WITH
 approvers AS (
@@ -371,7 +393,7 @@ eligible_bookings AS (
     WHERE b.status IN ('approved', 'completed', 'checked_in', 'no_show')
 )
 INSERT INTO approvals (booking_id, approver_id, decision, decision_time, decision_note, rejection_reason)
-SELECT TOP (800)
+SELECT TOP (1500)
     eb.booking_id,
     a.user_id,
     'approved',
@@ -462,10 +484,12 @@ JOIN conductors c ON c.rn = eb.conductor_rn;
 GO
 
 -- ============================================================================
--- 8. MAINTENANCE RECORDS (500 rows)
+-- 8. MAINTENANCE RECORDS (800 rows)
 --    Business rules enforced:
 --      BR-NI-07: assigned_staff_id must be facility_staff or facility_manager.
 --      BR-NI-08: Reporter can be any user, staff must hold facility role.
+--    A majority (>50%) of records are completed.
+--    Completed records include diverse result notes (10+ variations).
 -- ============================================================================
 WITH
 facility_staff AS (
@@ -491,14 +515,15 @@ space_cnt AS (
     SELECT COUNT(*) AS cnt FROM spaces
 ),
 generator AS (
-    SELECT TOP (500)
+    SELECT TOP (800)
         ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM user_cnt) + 1 AS reporter_rn,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM space_cnt) + 1 AS space_rn,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM staff_count) + 1 AS staff_rn,
         ABS(CHECKSUM(NEWID())) % 180 AS day_offset,
         ABS(CHECKSUM(NEWID())) % 100 AS status_roll,
-        ABS(CHECKSUM(NEWID())) % 10 AS problem_roll
+        ABS(CHECKSUM(NEWID())) % 10 AS problem_roll,
+        ABS(CHECKSUM(NEWID())) % 12 AS note_roll
     FROM sys.all_columns a
     CROSS JOIN sys.all_columns b
 )
@@ -521,17 +546,31 @@ SELECT
     END,
     DATEADD(DAY, g.day_offset, '2026-01-01'),
     CASE
-        WHEN g.status_roll < 30 THEN
+        WHEN g.status_roll < 55 THEN
             DATEADD(DAY, g.day_offset + 1 + ABS(CHECKSUM(NEWID())) % 5, '2026-01-01')
         ELSE NULL
     END,
     CASE
-        WHEN g.status_roll < 30 THEN 'completed'
-        WHEN g.status_roll < 55 THEN 'in_progress'
+        WHEN g.status_roll < 55 THEN 'completed'
+        WHEN g.status_roll < 80 THEN 'in_progress'
         ELSE 'reported'
     END,
     CASE
-        WHEN g.status_roll < 30 THEN N'Issue resolved. Component replaced.'
+        WHEN g.status_roll < 55 THEN
+            CASE g.note_roll
+                WHEN 0 THEN N'Issue resolved successfully. All systems operational.'
+                WHEN 1 THEN N'Equipment replaced with new unit. Functionality restored.'
+                WHEN 2 THEN N'Routine maintenance completed. No further action needed.'
+                WHEN 3 THEN N'System upgraded to latest version. Performance improved.'
+                WHEN 4 THEN N'Component repaired and tested. Working correctly.'
+                WHEN 5 THEN N'Electrical issue fixed. Safety check passed.'
+                WHEN 6 THEN N'Network reconnected. Connectivity verified.'
+                WHEN 7 THEN N'Furniture replaced. Area restored to normal.'
+                WHEN 8 THEN N'Cleaning and calibration completed. Ready for use.'
+                WHEN 9 THEN N'Software reinstall completed. System rebooted.'
+                WHEN 10 THEN N'Hardware diagnostic passed. No defects found.'
+                ELSE N'Maintenance completed per standard procedure.'
+            END
         ELSE NULL
     END
 FROM generator g
@@ -543,16 +582,27 @@ GO
 -- ============================================================================
 -- DATA INTEGRITY SUMMARY
 -- ============================================================================
--- Target                 | Actual (approximate)
--- ---------------------+----------------------
--- users:            600 | (SELECT COUNT(*) FROM users)
--- spaces:            60 | (SELECT COUNT(*) FROM spaces)
--- facilities:        15 | (SELECT COUNT(*) FROM facilities)
--- space_facilities: ~210 | (SELECT COUNT(*) FROM space_facilities)
--- bookings:        1500 | (SELECT COUNT(*) FROM bookings)
--- approvals:       ~800 | (SELECT COUNT(*) FROM approvals)
--- sessions:        1000 | (SELECT COUNT(*) FROM sessions)
--- maintenance:      500 | (SELECT COUNT(*) FROM maintenance_records)
+-- Target                    | Actual (approximate)
+-- --------------------------+----------------------
+-- users:             600    | (SELECT COUNT(*) FROM users)
+-- spaces:             60    | (SELECT COUNT(*) FROM spaces)
+-- facilities:         15    | (SELECT COUNT(*) FROM facilities)
+-- space_facilities:  ~210   | (SELECT COUNT(*) FROM space_facilities)
+-- bookings:         3500    | (SELECT COUNT(*) FROM bookings)
+-- approvals:        ~1500   | (SELECT COUNT(*) FROM approvals)
+-- sessions:         1000    | (SELECT COUNT(*) FROM sessions)
+-- maintenance:       800    | (SELECT COUNT(*) FROM maintenance_records)
+--
+-- Domain-specific constraints satisfied:
+--   Departments        → Only CS-related (Computer Science, Software
+--                        Engineering, Data Science, AI, Cybersecurity, etc.)
+--   Buildings          → Restricted to A-F
+--   Capacity           → Always divisible by 5 (40-50 classrooms, 200-300 AU)
+--   Booking status     → Approved ~60%, Completed ~27%, Rejected ~8%
+--   First name pool    → 60 names (≥40-60 requirement)
+--   Last name pool     → 30 names (≥20-30 requirement)
+--   Result notes       → 12 variations for completed maintenance (≥8-10)
+--   Maintenance status → Majority completed (>50%)
 --
 -- Business rules satisfied:
 --   BR-NI-02: Only bookings with appropriate status have approval rows.
@@ -561,6 +611,17 @@ GO
 --   BR-NI-05: All expected_participants <= space capacity.
 --   BR-NI-07: Role-appropriate users assigned to functions.
 --   BR-NI-08: assigned_staff_id always facility_staff or facility_manager.
+--
+-- Known DDL Constraint Issue:
+--   The constraint `ck_approvals_rejection_reason` (decision <> N'rejected')
+--   prevents inserting rejected decisions. Therefore rejection_reason cannot
+--   be populated. The bookings table has no rejection_reason column.
+--   To fully satisfy sample data requirements, the DDL constraint should be
+--   revised to:
+--     CHECK (
+--         (decision = N'rejected' AND rejection_reason IS NOT NULL)
+--         OR (decision = N'approved' AND rejection_reason IS NULL)
+--     )
 -- ============================================================================
 -- END OF SCRIPT
 -- ============================================================================

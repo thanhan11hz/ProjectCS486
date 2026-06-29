@@ -85,6 +85,103 @@ For example:
 
 ---
 
+## Step 3.5: Enforce Domain-Specific Data Quality Rules
+
+### 1. Name Generation Rules
+
+Use large and diverse name pools.
+
+Requirements:
+* At least 40–60 first names and 20–30 last names must be defined
+* Names must be combined randomly to create variety
+* Avoid small fixed lists that cause repetition
+
+Do NOT generate names using pure randomness (e.g., random strings).
+
+### 2. Department Constraints (Domain-Specific)
+
+All departments MUST be relevant to a Computer Science university.
+
+Allowed examples include:
+* Computer Science
+* Software Engineering
+* Data Science
+* Artificial Intelligence
+* Cybersecurity
+* Information Systems
+* Computer Networks
+* Human-Computer Interaction
+
+Generic departments (e.g., HR, Sales, Marketing) are NOT allowed.
+
+### 3. Building Constraints
+
+Building values MUST be restricted to a fixed set:
+
+Allowed values: A, B, C, D, E, F
+
+Do NOT generate full building names or random strings.
+
+### 4. Capacity Rules
+
+Capacity values must follow realistic constraints:
+
+* Must be divisible by 5
+* Must typically fall within the range 40–50, and 200-300 with auditoriums
+* Occasional variation outside this range is allowed but should be rare 
+
+Invalid examples:
+* 37, 83, 112
+
+Valid examples:
+* 40, 45, 50
+
+### 5. Booking Status Distribution
+
+Booking statuses MUST follow a realistic distribution:
+
+* Approved: ~60–70%
+* Completed: ~20–30%
+* Rejected: at least 5–10%
+
+A dataset with zero rejected bookings is NOT acceptable.
+
+### 6. Rejected Booking Requirements
+
+Rejected bookings MUST include a valid rejection reason.
+
+A rejection reason pool must be defined, including examples such as:
+* Scheduling conflict
+* Capacity exceeded
+* Duplicate request
+* Invalid booking details
+* Maintenance issue
+
+Rules:
+* RejectReason MUST be NULL for non-rejected bookings
+* RejectReason MUST be NON-NULL for rejected bookings
+
+### 7. Maintenance records must reflect realistic outcomes
+
+Maintenance records must reflect realistic outcomes.
+
+Requirements:
+* A majority of maintenance records should be marked as "Completed"
+* A diverse set of result notes must be used (at least 8–10 variations)
+
+Examples:
+* Issue resolved successfully
+* Equipment replaced
+* Routine maintenance completed
+* System upgraded
+* No issues found
+
+ResultNote:
+* MUST be present for completed records
+* MUST be NULL for incomplete records
+
+---
+
 ## Step 4: Translate Business Rules into Data Constraints
 
 All generated data must strictly comply with the business rules defined earlier. This requires translating abstract rules into concrete logic during insertion.
