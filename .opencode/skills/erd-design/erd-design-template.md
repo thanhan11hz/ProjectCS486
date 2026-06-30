@@ -18,6 +18,8 @@
 
 Repeat for every entity.
 
+Represents the subattributes of composite attributes in this table.
+
 ---
 
 ## 4. Relationships
@@ -54,7 +56,7 @@ flowchart LR
 %% =========================
 
 %% Example:
-%% UserID((user_id))
+%% UserID((<u>user_id/<u>))
 %% FullName((full_name))
 
 %% =========================
@@ -94,6 +96,7 @@ flowchart LR
 ### Attribute Coverage
 
 * [ ] Every major attribute appears in the ERD.
+* [ ] Represent subattributes of composite attribute.
 
 ### Relationship Coverage
 

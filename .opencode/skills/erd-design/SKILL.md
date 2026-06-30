@@ -313,6 +313,8 @@ Determine whether it is:
 
 Apply the Attribute Classification Rules.
 
+If the attribute can be meaningfully decomposed, decomposed it into subattributes
+
 Record:
 
 * Classification
@@ -386,6 +388,12 @@ Attribute → Oval
 Multivalued Attribute → Double Oval
 
 Derived Attribute → Dashed Oval
+
+Key Attribute → Underlined attribute name
+
+Decomposite Attribute → Oval links to subattributes
+
+Subattribute (of Decomposite Attribute) → Oval 
 
 Relationship → Diamond
 

@@ -195,26 +195,26 @@ None identified.
 
 | Relation | Foreign Key | References |
 |----------|------------|------------|
-| Booking | user_id (requester_id) | User(user_id) |
+| Booking | requester_id | User(user_id) |
 | Booking | space_code | Space(space_code) |
 | Approval | booking_id (UNIQUE) | Booking(booking_id) |
-| Approval | user_id (approver_id) | User(user_id) |
+| Approval | approver_id | User(user_id) |
 | Session | booking_id (UNIQUE) | Booking(booking_id) |
-| Session | user_id (conductor_id) | User(user_id) |
-| Maintenance_Record | user_id (reporter_id) | User(user_id) |
+| Session | conductor_id | User(user_id) |
+| Maintenance_Record | reporter_id | User(user_id) |
 | Maintenance_Record | space_code | Space(space_code) |
-| Maintenance_Record | user_id (assigned_staff_id) | User(user_id) |
+| Maintenance_Record | assigned_staff_id | User(user_id) |
 | Space_Facility | space_code | Space(space_code) |
 | Space_Facility | facility_id | Facility(facility_id) |
 
 ### Referential Integrity Summary
 
-- Booking.user_id references User.user_id — ensures every booking is submitted by a valid user.
+- Booking.requester_id references User.user_id — ensures every booking is submitted by a valid user.
 - Booking.space_code references Space.space_code — ensures every booking reserves a valid space.
 - Approval.booking_id references Booking.booking_id — ensures every approval corresponds to an existing booking (non-identifying 1:1 relationship; UNIQUE enforces 1:1 cardinality).
-- Approval.user_id references User.user_id — ensures every approval decision is made by a valid user.
+- Approval.approver_id references User.user_id — ensures every approval decision is made by a valid user.
 - Session.booking_id references Booking.booking_id — ensures every session corresponds to an existing booking (non-identifying 1:1 relationship; UNIQUE enforces 1:1 cardinality).
-- Session.user_id references User.user_id — ensures every session is conducted by a valid user.
+- Session.conductor_id references User.user_id — ensures every session is conducted by a valid user.
 - Maintenance_Record.reporter_id references User.user_id — ensures every maintenance record is reported by a valid user.
 - Maintenance_Record.space_code references Space.space_code — ensures every maintenance record is associated with a valid space.
 - Maintenance_Record.assigned_staff_id references User.user_id — ensures every maintenance record is assigned to a valid user.
@@ -256,12 +256,12 @@ Each relation has a defined primary key that uniquely identifies every tuple and
 
 | Referencing Relation | Referencing Attribute | Referenced Relation | Referenced Attribute | Constraint Description |
 |---------------------|---------------------|-------------------|---------------------|----------------------|
-| Booking | user_id | User | user_id | FK NOT NULL (total participation of Booking in submits) |
+| Booking | requester_id | User | user_id | FK NOT NULL (total participation of Booking in submits) |
 | Booking | space_code | Space | space_code | FK NOT NULL (total participation of Booking in reserves) |
 | Approval | booking_id | Booking | booking_id | FK NOT NULL, UNIQUE (total participation in reviews; UNIQUE enforces 1:1) |
-| Approval | user_id | User | user_id | FK NOT NULL (total participation of Approval in makes) |
+| Approval | approver_id | User | user_id | FK NOT NULL (total participation of Approval in makes) |
 | Session | booking_id | Booking | booking_id | FK NOT NULL, UNIQUE (total participation in tracks; UNIQUE enforces 1:1) |
-| Session | user_id | User | user_id | FK NOT NULL (total participation of Session in conducts) |
+| Session | conductor_id | User | user_id | FK NOT NULL (total participation of Session in conducts) |
 | Maintenance_Record | reporter_id | User | user_id | FK NOT NULL (total participation in reports) |
 | Maintenance_Record | space_code | Space | space_code | FK NOT NULL (total participation in pertains_to) |
 | Maintenance_Record | assigned_staff_id | User | user_id | FK NOT NULL (total participation in assigned_to) |
@@ -404,7 +404,7 @@ erDiagram
 
 | ID | Assumption |
 |----|-----------|
-| LD-01 | Role names are assigned to foreign keys to disambiguate multiple FKs referencing the same relation (User). Role names: requester_id, approver_id, conductor_id, reporter_id, assigned_staff_id. In the relational schema, these are stored as user_id with clear role documentation. |
+| LD-01 | Role names are assigned to foreign keys to disambiguate multiple FKs referencing the same relation (User). Role names: requester_id, approver_id, conductor_id, reporter_id, assigned_staff_id. The actual column names in the schema use these role names rather than user_id. |
 | LD-02 | No artificial candidate keys are introduced. Business-defined candidate keys are preserved as documented from the conceptual analysis. |
 | LD-03 | Space_Facility PK is (space_code, facility_id) — a composite of both participating FKs per Rule 5. This prevents duplicate entries for the same facility in the same space. |
 | LD-04 | Approval and Session are classified as strong entities per the ERD. Each has its own unique identifier (approval_id, session_id) and does not depend on Booking for identity. The 1:1 relationships (reviews, tracks) are captured via FK with UNIQUE constraint rather than composite PK. |

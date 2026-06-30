@@ -1,9 +1,8 @@
 ---
-
 name: design-validation
 description: validate whether the relational schema correctly represents the ERD, satisfies business rules, and uses appropriate keys, relationships, and constraints.
 compatibility: opencode
------------------------
+---
 
 # Validate Compatibility Between ERD And Relational Schema
 
