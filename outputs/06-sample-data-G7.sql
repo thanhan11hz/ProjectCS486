@@ -23,23 +23,6 @@ GO
 --   8. maintenance_records (FK: users, spaces)
 -- ============================================================================
 
--- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
--- NOTE: The DDL constraint `ck_approvals_rejection_reason` on the approvals
--- table enforces `decision <> N'rejected'`, which prevents inserting any row
--- with decision='rejected'. Consequently, rejection reasons cannot be stored
--- in the approvals table for rejected bookings. The bookings table itself has
--- no rejection_reason column. Rejected bookings (status='rejected') exist in
--- the bookings table without an associated approval record.
---
--- This is a known DDL constraint conflict. To fully satisfy the sample data
--- requirements (RejectReason NON-NULL for rejected bookings), the DDL
--- constraint `ck_approvals_rejection_reason` needs to be revised to:
---   CHECK (
---       (decision = N'rejected' AND rejection_reason IS NOT NULL)
---       OR (decision = N'approved' AND rejection_reason IS NULL)
---   )
--- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
 -- ============================================================================
 -- 1. USERS (600 rows)
 --    Departments restricted to Computer Science domains only.
@@ -291,7 +274,7 @@ WHERE qty > 0;
 GO
 
 -- ============================================================================
--- 5. BOOKINGS (3500 rows)
+-- 5. BOOKINGS (2500 rows)
 --    References users and spaces.
 --    Status distribution:
 --      Approved:  60%  (60-70% per skill requirement)
@@ -321,7 +304,7 @@ space_count AS (
     SELECT COUNT(*) AS cnt FROM spaces
 ),
 generator AS (
-    SELECT TOP (3500)
+    SELECT TOP (2500)
         ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM user_count) + 1 AS user_rn,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM space_count) + 1 AS space_rn,
@@ -364,10 +347,9 @@ JOIN numbered_spaces ns ON ns.rn = g.space_rn;
 GO
 
 -- ============================================================================
--- 6. APPROVALS (1500 rows)
---    Only for bookings with status in (approved, completed, checked_in,
---    no_show). All decisions are 'approved' because the DDL constraint
---    `ck_approvals_rejection_reason` prevents 'rejected' decisions.
+-- 6. APPROVALS (1800 rows)
+--    For bookings with status in (approved, completed, checked_in, no_show,
+--    rejected). Rejected bookings include a valid rejection_reason.
 --    Business rules enforced:
 --      BR-NI-02: Only pending bookings can be approved (data reflects final
 --                state — bookings had 'pending' when decision was made).
@@ -387,28 +369,45 @@ eligible_bookings AS (
         b.booking_id,
         b.requester_id,
         b.purpose,
+        b.status,
         b.requested_start_time,
-        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM approver_count) + 1 AS approver_rn
+        ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM approver_count) + 1 AS approver_rn,
+        ABS(CHECKSUM(NEWID())) % 6 AS reason_roll
     FROM bookings b
-    WHERE b.status IN ('approved', 'completed', 'checked_in', 'no_show')
+    WHERE b.status IN ('approved', 'completed', 'checked_in', 'no_show', 'rejected')
 )
 INSERT INTO approvals (booking_id, approver_id, decision, decision_time, decision_note, rejection_reason)
-SELECT TOP (1500)
+SELECT TOP (1800)
     eb.booking_id,
     a.user_id,
-    'approved',
+    CASE WHEN eb.status = 'rejected' THEN 'rejected' ELSE 'approved' END,
     DATEADD(HOUR, -1 * (1 + ABS(CHECKSUM(NEWID())) % 72), eb.requested_start_time),
-    CASE eb.purpose
-        WHEN 'lecture'             THEN N'Lecture session approved.'
-        WHEN 'examination'         THEN N'Examination session approved. Proctors assigned.'
-        WHEN 'seminar'             THEN N'Seminar approved.'
-        WHEN 'workshop'            THEN N'Workshop approved.'
-        WHEN 'meeting'             THEN N'Meeting booking approved.'
-        WHEN 'student_activity'    THEN N'Student activity approved.'
-        WHEN 'administrative_event' THEN N'Administrative event approved.'
-        ELSE N'Booking approved.'
+    CASE
+        WHEN eb.status = 'rejected' THEN NULL
+        ELSE
+            CASE eb.purpose
+                WHEN 'lecture'              THEN N'Lecture session approved.'
+                WHEN 'examination'          THEN N'Examination session approved. Proctors assigned.'
+                WHEN 'seminar'              THEN N'Seminar approved.'
+                WHEN 'workshop'             THEN N'Workshop approved.'
+                WHEN 'meeting'              THEN N'Meeting booking approved.'
+                WHEN 'student_activity'     THEN N'Student activity approved.'
+                WHEN 'administrative_event' THEN N'Administrative event approved.'
+                ELSE N'Booking approved.'
+            END
     END,
-    NULL
+    CASE
+        WHEN eb.status = 'rejected' THEN
+            CASE eb.reason_roll
+                WHEN 0 THEN N'Scheduling conflict with existing booking.'
+                WHEN 1 THEN N'Requested capacity exceeds room limit.'
+                WHEN 2 THEN N'Duplicate request — identical booking already exists.'
+                WHEN 3 THEN N'Invalid booking details provided.'
+                WHEN 4 THEN N'Room under maintenance at requested time.'
+                ELSE N'Insufficient resources available for this request.'
+            END
+        ELSE NULL
+    END
 FROM eligible_bookings eb
 JOIN approvers a ON a.rn = eb.approver_rn
 WHERE a.user_id != eb.requester_id
@@ -588,8 +587,8 @@ GO
 -- spaces:             60    | (SELECT COUNT(*) FROM spaces)
 -- facilities:         15    | (SELECT COUNT(*) FROM facilities)
 -- space_facilities:  ~210   | (SELECT COUNT(*) FROM space_facilities)
--- bookings:         3500    | (SELECT COUNT(*) FROM bookings)
--- approvals:        ~1500   | (SELECT COUNT(*) FROM approvals)
+-- bookings:         2500    | (SELECT COUNT(*) FROM bookings)
+-- approvals:        ~1800   | (SELECT COUNT(*) FROM approvals)
 -- sessions:         1000    | (SELECT COUNT(*) FROM sessions)
 -- maintenance:       800    | (SELECT COUNT(*) FROM maintenance_records)
 --
@@ -603,6 +602,8 @@ GO
 --   Last name pool     → 30 names (≥20-30 requirement)
 --   Result notes       → 12 variations for completed maintenance (≥8-10)
 --   Maintenance status → Majority completed (>50%)
+--   Rejection reasons  → 6 distinct reasons for rejected bookings
+--   Rejected approvals → RejectReason non-NULL; approved approvals → NULL
 --
 -- Business rules satisfied:
 --   BR-NI-02: Only bookings with appropriate status have approval rows.
@@ -611,17 +612,6 @@ GO
 --   BR-NI-05: All expected_participants <= space capacity.
 --   BR-NI-07: Role-appropriate users assigned to functions.
 --   BR-NI-08: assigned_staff_id always facility_staff or facility_manager.
---
--- Known DDL Constraint Issue:
---   The constraint `ck_approvals_rejection_reason` (decision <> N'rejected')
---   prevents inserting rejected decisions. Therefore rejection_reason cannot
---   be populated. The bookings table has no rejection_reason column.
---   To fully satisfy sample data requirements, the DDL constraint should be
---   revised to:
---     CHECK (
---         (decision = N'rejected' AND rejection_reason IS NOT NULL)
---         OR (decision = N'approved' AND rejection_reason IS NULL)
---     )
 -- ============================================================================
 -- END OF SCRIPT
 -- ============================================================================
