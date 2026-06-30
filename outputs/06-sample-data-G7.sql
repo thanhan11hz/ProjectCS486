@@ -68,7 +68,7 @@ department_pool AS (
 ),
 numbered AS (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS seq,
+        ROW_NUMBER() OVER (ORDER BY NEWID()) AS seq,
         fn.name AS fn_name,
         ln.name AS ln_name,
         d.name AS dept_name,
@@ -274,16 +274,16 @@ WHERE qty > 0;
 GO
 
 -- ============================================================================
--- 5. BOOKINGS (2500 rows)
+-- 5. BOOKINGS (3000 rows)
 --    References users and spaces.
---    Status distribution:
---      Approved:  60%  (60-70% per skill requirement)
---      Completed: 27%  (20-30% per skill requirement)
---      Rejected:   8%  (≥5-10% per skill requirement)
+--   Status distribution:
+--      Approved:  58%  (60-70% per skill requirement)
+--      Completed: 30%  (20-30% per skill requirement)
+--      Rejected:   5%  (≥5-10% per skill requirement)
 --      Pending:    2%
 --      Cancelled:  1%
---      Checked_in: 1%
---      No_show:    1%
+--      Checked_in: 2%
+--      No_show:    2%
 --    Business rules enforced:
 --      BR-NI-05: expected_participants <= space.capacity (divisible by 5)
 --      BR-NI-06: requested_start_time < requested_end_time
@@ -304,7 +304,7 @@ space_count AS (
     SELECT COUNT(*) AS cnt FROM spaces
 ),
 generator AS (
-    SELECT TOP (2500)
+    SELECT TOP (3000)
         ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM user_count) + 1 AS user_rn,
         ABS(CHECKSUM(NEWID())) % (SELECT cnt FROM space_count) + 1 AS space_rn,
@@ -333,12 +333,12 @@ SELECT
     END,
     (1 + ABS(CHECKSUM(NEWID())) % (ns.capacity / 5)) * 5,
     CASE
-        WHEN g.status_roll < 27 THEN 'completed'
-        WHEN g.status_roll < 87 THEN 'approved'
-        WHEN g.status_roll < 95 THEN 'rejected'
-        WHEN g.status_roll < 97 THEN 'pending'
-        WHEN g.status_roll < 98 THEN 'cancelled'
-        WHEN g.status_roll < 99 THEN 'checked_in'
+        WHEN g.status_roll < 30 THEN 'completed'
+        WHEN g.status_roll < 88 THEN 'approved'
+        WHEN g.status_roll < 93 THEN 'rejected'
+        WHEN g.status_roll < 95 THEN 'pending'
+        WHEN g.status_roll < 96 THEN 'cancelled'
+        WHEN g.status_roll < 98 THEN 'checked_in'
         ELSE 'no_show'
     END
 FROM generator g
@@ -587,7 +587,7 @@ GO
 -- spaces:             60    | (SELECT COUNT(*) FROM spaces)
 -- facilities:         15    | (SELECT COUNT(*) FROM facilities)
 -- space_facilities:  ~210   | (SELECT COUNT(*) FROM space_facilities)
--- bookings:         2500    | (SELECT COUNT(*) FROM bookings)
+-- bookings:         3000    | (SELECT COUNT(*) FROM bookings)
 -- approvals:        ~1800   | (SELECT COUNT(*) FROM approvals)
 -- sessions:         1000    | (SELECT COUNT(*) FROM sessions)
 -- maintenance:       800    | (SELECT COUNT(*) FROM maintenance_records)
@@ -597,7 +597,7 @@ GO
 --                        Engineering, Data Science, AI, Cybersecurity, etc.)
 --   Buildings          → Restricted to A-F
 --   Capacity           → Always divisible by 5 (40-50 classrooms, 200-300 AU)
---   Booking status     → Approved ~60%, Completed ~27%, Rejected ~8%
+--   Booking status     → Approved ~58%, Completed ~30%, Rejected ~5%
 --   First name pool    → 60 names (≥40-60 requirement)
 --   Last name pool     → 30 names (≥20-30 requirement)
 --   Result notes       → 12 variations for completed maintenance (≥8-10)

@@ -95,6 +95,7 @@ Requirements:
 * At least 40–60 first names and 20–30 last names must be defined
 * Names must be combined randomly to create variety
 * Avoid small fixed lists that cause repetition
+* Shuffle all names at the end to ensure randomness
 
 Do NOT generate names using pure randomness (e.g., random strings).
 
