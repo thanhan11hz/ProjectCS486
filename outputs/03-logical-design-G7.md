@@ -10,8 +10,8 @@
 | Space | Strong | space_code |
 | Facility | Strong | facility_id |
 | Booking | Strong | booking_id |
-| Approval | Weak (owner: Booking) | approval_id (partial key) |
-| Session | Weak (owner: Booking) | session_id (partial key) |
+| Approval | Strong | approval_id |
+| Session | Strong | session_id |
 | Maintenance Record | Strong | maintenance_id |
 
 ---
@@ -23,9 +23,9 @@
 | submits | 1:N | - |
 | reserves | N:1 | - |
 | makes | 1:N | - |
-| reviews | 1:1 (identifying) | - |
+| reviews | 1:1 | - |
 | conducts | 1:N | - |
-| tracks | 1:1 (identifying) | - |
+| tracks | 1:1 | - |
 | reports | 1:N | - |
 | pertains_to | N:1 | - |
 | equipped_with | M:N | quantity |
@@ -37,10 +37,7 @@
 
 ### Weak Entities
 
-| Weak Entity | Owner | Partial Key |
-|------------|------------|------------|
-| Approval | Booking | approval_id |
-| Session | Booking | session_id |
+None identified.
 
 ### Multivalued Attributes
 
@@ -72,29 +69,17 @@ None identified.
 | Space | Space | space_code | (building, floor, room_number) |
 | Facility | Facility | facility_id | facility_name |
 | Booking | Booking | booking_id | - |
+| Approval | Approval | approval_id | - |
+| Session | Session | session_id | - |
 | Maintenance Record | Maintenance_Record | maintenance_id | - |
 
 ### Decisions
 
-- **Rule 1 (Strong Entity Mapping)** applied to all strong entities.
+- **Rule 1 (Strong Entity Mapping)** applied to all strong entities, including Approval and Session.
+- Approval and Session are classified as strong entities per the ERD: each possesses its own unique identifier (approval_id, session_id) and does not depend on another entity for identity.
 - **Rule 8 (Composite Attribute Mapping):** full_name decomposed into first_name and last_name.
 - **Rule 13 (Derived Attributes):** No derived attributes are stored. booking_duration and similar computed values are excluded per requirement analysis.
 - **Rule 11 (Candidate Key Preservation):** User.email preserved as candidate key (unique university email). Space (building, floor, room_number) preserved as candidate key (physical location uniqueness). Facility.facility_name preserved as candidate key.
-
----
-
-## Weak Entities
-
-| Weak Entity | Relation | PK | FK |
-|------------|------------|------------|------------|
-| Approval | Approval | (booking_id, approval_id) | booking_id → Booking(booking_id) |
-| Session | Session | (booking_id, session_id) | booking_id → Booking(booking_id) |
-
-### Decisions
-
-- **Rule 2 (Weak Entity Mapping):** Both Approval and Session depend on Booking through identifying relationships (reviews and tracks).
-- PK is composite: Owner PK (booking_id) + Partial Key (approval_id or session_id).
-- The identifying relationship is captured by the FK + PK composition; no separate relationship relation is needed.
 
 ---
 
@@ -104,12 +89,17 @@ None identified.
 
 | Relationship | Strategy | Result |
 |-------------|-------------|-------------|
-| reviews (Approval ↔ Booking, identifying) | Weak entity mapping (Rule 2) | booking_id in Approval as FK and PK component |
-| tracks (Session ↔ Booking, identifying) | Weak entity mapping (Rule 2) | booking_id in Session as FK and PK component |
+| reviews (Approval ↔ Booking) | FK in total participation side (Rule 3) | booking_id in Approval as FK with UNIQUE constraint |
+| tracks (Session ↔ Booking) | FK in total participation side (Rule 3) | booking_id in Session as FK with UNIQUE constraint |
 
 ### Rationale
 
-Both 1:1 relationships are identifying relationships for weak entities. The weak entity mapping (Rule 2) inherently captures the 1:1 relationship semantics — the FK to the owner entity is placed in the weak entity relation and forms part of its composite PK. No separate FK placement is needed beyond the weak entity mapping.
+**Rule 3 (Binary 1:1 Mapping):** The preferred approach is to place a FK in the relation with total participation.
+
+- **reviews:** Approval has total participation (every approval must review exactly one booking, BR-11); Booking has partial participation (a booking may have at most one approval, BR-09). FK `booking_id` is placed in Approval. A UNIQUE constraint on `booking_id` enforces the 1:1 cardinality.
+- **tracks:** Session has total participation (every session must track exactly one booking, BR-12); Booking has partial participation (a booking may have at most one session, BR-10). FK `booking_id` is placed in Session. A UNIQUE constraint on `booking_id` enforces the 1:1 cardinality.
+
+Both Approval and Session are strong entities with their own simple primary keys (`approval_id`, `session_id`). The relationships are non-identifying per the ERD.
 
 ---
 
@@ -207,9 +197,9 @@ None identified.
 |----------|------------|------------|
 | Booking | user_id (requester_id) | User(user_id) |
 | Booking | space_code | Space(space_code) |
-| Approval | booking_id | Booking(booking_id) |
+| Approval | booking_id (UNIQUE) | Booking(booking_id) |
 | Approval | user_id (approver_id) | User(user_id) |
-| Session | booking_id | Booking(booking_id) |
+| Session | booking_id (UNIQUE) | Booking(booking_id) |
 | Session | user_id (conductor_id) | User(user_id) |
 | Maintenance_Record | user_id (reporter_id) | User(user_id) |
 | Maintenance_Record | space_code | Space(space_code) |
@@ -221,9 +211,9 @@ None identified.
 
 - Booking.user_id references User.user_id — ensures every booking is submitted by a valid user.
 - Booking.space_code references Space.space_code — ensures every booking reserves a valid space.
-- Approval.booking_id references Booking.booking_id — ensures every approval corresponds to an existing booking (identifying relationship).
+- Approval.booking_id references Booking.booking_id — ensures every approval corresponds to an existing booking (non-identifying 1:1 relationship; UNIQUE enforces 1:1 cardinality).
 - Approval.user_id references User.user_id — ensures every approval decision is made by a valid user.
-- Session.booking_id references Booking.booking_id — ensures every session corresponds to an existing booking (identifying relationship).
+- Session.booking_id references Booking.booking_id — ensures every session corresponds to an existing booking (non-identifying 1:1 relationship; UNIQUE enforces 1:1 cardinality).
 - Session.user_id references User.user_id — ensures every session is conducted by a valid user.
 - Maintenance_Record.reporter_id references User.user_id — ensures every maintenance record is reported by a valid user.
 - Maintenance_Record.space_code references Space.space_code — ensures every maintenance record is associated with a valid space.
@@ -255,8 +245,8 @@ Each relation has a defined primary key that uniquely identifies every tuple and
 | Space | space_code | NOT NULL, UNIQUE |
 | Facility | facility_id | NOT NULL, UNIQUE |
 | Booking | booking_id | NOT NULL, UNIQUE |
-| Approval | (booking_id, approval_id) | NOT NULL, UNIQUE; booking_id is both FK and PK component |
-| Session | (booking_id, session_id) | NOT NULL, UNIQUE; booking_id is both FK and PK component |
+| Approval | approval_id | NOT NULL, UNIQUE |
+| Session | session_id | NOT NULL, UNIQUE |
 | Maintenance_Record | maintenance_id | NOT NULL, UNIQUE |
 | Space_Facility | (space_code, facility_id) | NOT NULL, UNIQUE |
 
@@ -268,9 +258,9 @@ Each relation has a defined primary key that uniquely identifies every tuple and
 |---------------------|---------------------|-------------------|---------------------|----------------------|
 | Booking | user_id | User | user_id | FK NOT NULL (total participation of Booking in submits) |
 | Booking | space_code | Space | space_code | FK NOT NULL (total participation of Booking in reserves) |
-| Approval | booking_id | Booking | booking_id | FK NOT NULL (identifying relationship, total participation) |
+| Approval | booking_id | Booking | booking_id | FK NOT NULL, UNIQUE (total participation in reviews; UNIQUE enforces 1:1) |
 | Approval | user_id | User | user_id | FK NOT NULL (total participation of Approval in makes) |
-| Session | booking_id | Booking | booking_id | FK NOT NULL (identifying relationship, total participation) |
+| Session | booking_id | Booking | booking_id | FK NOT NULL, UNIQUE (total participation in tracks; UNIQUE enforces 1:1) |
 | Session | user_id | User | user_id | FK NOT NULL (total participation of Session in conducts) |
 | Maintenance_Record | reporter_id | User | user_id | FK NOT NULL (total participation in reports) |
 | Maintenance_Record | space_code | Space | space_code | FK NOT NULL (total participation in pertains_to) |
@@ -335,8 +325,8 @@ erDiagram
     }
 
     Approval {
-        string booking_id PK,FK
         string approval_id PK
+        string booking_id FK,UK
         string approver_id FK
         string decision
         datetime decision_time
@@ -345,8 +335,8 @@ erDiagram
     }
 
     Session {
-        string booking_id PK,FK
         string session_id PK
+        string booking_id FK,UK
         string conductor_id FK
         datetime actual_start_time
         datetime actual_end_time
@@ -392,16 +382,16 @@ erDiagram
 
 | Criterion | Status |
 |-----------|--------|
-| Every entity mapped to a relation | ✓ All 7 entities mapped (5 strong, 2 weak) |
+| Every entity mapped to a relation | ✓ All 7 entities mapped (all strong) |
 | Every attribute mapped | ✓ All attributes mapped; full_name decomposed into first_name, last_name |
-| Every identifier preserved | ✓ All PKs defined; weak entities use composite PK |
+| Every identifier preserved | ✓ All PKs defined; no composite PKs for weak entities |
 | Every relationship represented | ✓ All 10 relationships represented |
-| 1:1 relationships mapped correctly | ✓ reviews and tracks captured via weak entity mapping |
+| 1:1 relationships mapped correctly | ✓ reviews and tracks mapped via FK + UNIQUE (Rule 3) |
 | 1:N relationships mapped correctly | ✓ All 1:N relationships mapped via FK on N-side |
 | M:N relationships mapped correctly | ✓ equipped_with resolved via Space_Facility associative relation |
 | Composite attributes decomposed | ✓ full_name decomposed into first_name and last_name |
 | Multivalued attributes resolved | ✓ None identified |
-| Weak entities mapped correctly | ✓ Approval and Session mapped with composite PK + FK to Booking |
+| Weak entities mapped correctly | ✓ None identified in this design |
 | Recursive relationships mapped | ✓ None identified |
 | Relationship attributes preserved | ✓ quantity preserved in Space_Facility |
 | Foreign keys identified | ✓ All 11 FK references documented |
@@ -417,3 +407,4 @@ erDiagram
 | LD-01 | Role names are assigned to foreign keys to disambiguate multiple FKs referencing the same relation (User). Role names: requester_id, approver_id, conductor_id, reporter_id, assigned_staff_id. In the relational schema, these are stored as user_id with clear role documentation. |
 | LD-02 | No artificial candidate keys are introduced. Business-defined candidate keys are preserved as documented from the conceptual analysis. |
 | LD-03 | Space_Facility PK is (space_code, facility_id) — a composite of both participating FKs per Rule 5. This prevents duplicate entries for the same facility in the same space. |
+| LD-04 | Approval and Session are classified as strong entities per the ERD. Each has its own unique identifier (approval_id, session_id) and does not depend on Booking for identity. The 1:1 relationships (reviews, tracks) are captured via FK with UNIQUE constraint rather than composite PK. |
