@@ -277,13 +277,13 @@ GO
 -- 5. BOOKINGS (3000 rows)
 --    References users and spaces.
 --   Status distribution:
---      Approved:  58%  (60-70% per skill requirement)
---      Completed: 30%  (20-30% per skill requirement)
---      Rejected:   5%  (≥5-10% per skill requirement)
+--      Completed: 25%  (20-30% per skill requirement)
+--      Approved:  63%  (60-70% per skill requirement)
+--      Rejected:   6%  (≥5-10% per skill requirement)
 --      Pending:    2%
 --      Cancelled:  1%
 --      Checked_in: 2%
---      No_show:    2%
+--      No_show:    1%
 --    Business rules enforced:
 --      BR-NI-05: expected_participants <= space.capacity (divisible by 5)
 --      BR-NI-06: requested_start_time < requested_end_time
@@ -333,12 +333,12 @@ SELECT
     END,
     (1 + ABS(CHECKSUM(NEWID())) % (ns.capacity / 5)) * 5,
     CASE
-        WHEN g.status_roll < 30 THEN 'completed'
+        WHEN g.status_roll < 25 THEN 'completed'
         WHEN g.status_roll < 88 THEN 'approved'
-        WHEN g.status_roll < 93 THEN 'rejected'
-        WHEN g.status_roll < 95 THEN 'pending'
-        WHEN g.status_roll < 96 THEN 'cancelled'
-        WHEN g.status_roll < 98 THEN 'checked_in'
+        WHEN g.status_roll < 94 THEN 'rejected'
+        WHEN g.status_roll < 96 THEN 'pending'
+        WHEN g.status_roll < 97 THEN 'cancelled'
+        WHEN g.status_roll < 99 THEN 'checked_in'
         ELSE 'no_show'
     END
 FROM generator g
@@ -597,7 +597,7 @@ GO
 --                        Engineering, Data Science, AI, Cybersecurity, etc.)
 --   Buildings          → Restricted to A-F
 --   Capacity           → Always divisible by 5 (40-50 classrooms, 200-300 AU)
---   Booking status     → Approved ~58%, Completed ~30%, Rejected ~5%
+--   Booking status     → Approved ~63%, Completed ~25%, Rejected ~6%
 --   First name pool    → 60 names (≥40-60 requirement)
 --   Last name pool     → 30 names (≥20-30 requirement)
 --   Result notes       → 12 variations for completed maintenance (≥8-10)

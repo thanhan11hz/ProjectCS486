@@ -10,7 +10,7 @@ Execute:
 2. Execute the skill.
 
 3. Generate or update:
-   `outputs/07-query-design-G7.md`
+   `outputs/07-query-design-G7.sql`
 
 4. Stop.
 

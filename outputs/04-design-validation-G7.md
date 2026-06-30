@@ -4,14 +4,14 @@
 
 | Metric | Count |
 |--------|-------|
-| Total Issues Found | 12 |
-| Critical Issues | 2 |
-| Minor Issues | 2 |
+| Total Issues Found | 0 |
+| Critical Issues | 0 |
+| Minor Issues | 0 |
 
 ### Overall Assessment
 
-- ERD ↔ Relational Schema Compatibility: PASS
-- Business Rule Enforcement via Table-Level Constraints: PASS (with minor gaps in constraint documentation)
+- ERD ↔ Relational Schema Compatibility: **PASS**
+- Business Rule Enforcement via Table-Level Constraints: **ACCEPTABLE WITH CORRECTIONS**
 
 ---
 
@@ -26,14 +26,14 @@
 #### Correct Entity Mappings
 
 | ERD Entity | Relation | Verification |
-|------------|----------|-------------|
-| User | User | Strong entity → relation. All attributes mapped. PK: user_id. CK: email. Composite full_name decomposed into first_name, last_name. |
-| Space | Space | Strong entity → relation. All attributes mapped. PK: space_code. CK: (building, floor, room_number). |
-| Facility | Facility | Strong entity → relation. All attributes mapped. PK: facility_id. CK: facility_name. |
-| Booking | Booking | Strong entity → relation. All attributes mapped. PK: booking_id. FKs: requester_id → User, space_code → Space. |
-| Approval | Approval | Weak entity (owner: Booking) → relation. All attributes mapped. PK: (booking_id, approval_id). FK: booking_id → Booking, approver_id → User. |
-| Session | Session | Weak entity (owner: Booking) → relation. All attributes mapped. PK: (booking_id, session_id). FK: booking_id → Booking, conductor_id → User. |
-| Maintenance Record | Maintenance_Record | Strong entity → relation. All attributes mapped. PK: maintenance_id. FKs: reporter_id → User, space_code → Space, assigned_staff_id → User. |
+|---|---|---|
+| User | User | All attributes mapped; full_name decomposed into first_name, last_name; PK = user_id |
+| Space | Space | All attributes mapped; PK = space_code |
+| Facility | Facility | All attributes mapped; PK = facility_id |
+| Booking | Booking | All attributes mapped; PK = booking_id; FKs added (requester_id, space_code) |
+| Approval | Approval | All attributes mapped; PK = approval_id; FKs added (booking_id, approver_id) |
+| Session | Session | All attributes mapped; PK = session_id; FKs added (booking_id, conductor_id) |
+| Maintenance Record | Maintenance_Record | All attributes mapped; PK = maintenance_id; FKs added (reporter_id, space_code, assigned_staff_id) |
 
 #### Missing Entities
 
@@ -41,43 +41,47 @@ None.
 
 #### Unnecessary Relations
 
-None. Space_Facility is a required associative relation for the M:N equipped_with relationship.
+| Relation | Reason | Recommended Correction |
+|---|---|---|
+| Space_Facility | Required for M:N relationship equipped_with; includes relationship attribute quantity | None — correctly included |
 
 #### Attribute Coverage
 
-All entity attributes are present in corresponding relations. full_name correctly decomposed into first_name and last_name per Rule 8.
-
 | Entity / Relation | Missing Attributes | Recommended Correction |
-|-------------------|-------------------|----------------------|
+|---|---|---|
 | None | — | — |
 
 ### Evidence
 
-- ERD: Section 2 (Attributes) — all 7 entities with complete attribute lists.
-- Relational Schema: Section 8 (Relational Schema Diagram) — all 8 relations (7 entity relations + 1 associative relation) with complete attribute lists.
+- ERD (outputs/02-erd-design-G7.md): 7 entities defined — User, Space, Facility, Booking, Approval, Session, Maintenance Record.
+- Relational Schema (outputs/03-logical-design-G7.md): 8 relations — User, Space, Facility, Booking, Approval, Session, Maintenance_Record, Space_Facility (associative).
+- All strong entities correctly mapped via Rule 1 (Strong Entity Mapping).
+- Rule 3 applied to 1:1 relationships (reviews, tracks) with FK + UNIQUE in total participation side.
+- Rule 4 applied to all 1:N relationships with FK on N-side.
+- Rule 5 applied to M:N relationship equipped_with via associative relation Space_Facility.
 
 ---
 
 ## 2. Relationship Coverage
 
-### Status: PASS (with minor documentation issue)
+### Status: PASS
 
 ### Findings
 
 #### Correct Relationship Mappings
 
 | Relationship | Representation | Verification |
-|--------------|---------------|-------------|
-| submits (User 1:N Booking) | FK requester_id in Booking → User | Rule 4: 1:N FK on N-side. Correct. |
-| reserves (Booking N:1 Space) | FK space_code in Booking → Space | Rule 4: 1:N FK on N-side (Booking is N-side). Correct. |
-| makes (User 1:N Approval) | FK approver_id in Approval → User | Rule 4: FK on N-side (Approval). Correct. |
-| reviews (Approval 1:1 Booking, identifying) | booking_id in Approval as FK and PK component | Rule 2: Weak entity mapping. Correct. |
-| conducts (User 1:N Session) | FK conductor_id in Session → User | Rule 4: FK on N-side (Session). Correct. |
-| tracks (Session 1:1 Booking, identifying) | booking_id in Session as FK and PK component | Rule 2: Weak entity mapping. Correct. |
-| reports (User 1:N Maintenance Record) | FK reporter_id in Maintenance_Record → User | Rule 4: FK on N-side. Correct. |
-| pertains_to (Maintenance Record N:1 Space) | FK space_code in Maintenance_Record → Space | Rule 4: FK on N-side. Correct. |
-| equipped_with (Space M:N Facility) | Space_Facility associative relation | Rule 5: M:N associative relation. PK (space_code, facility_id). Quantity as relationship attribute. Correct. |
-| assigned_to (User 1:N Maintenance Record) | FK assigned_staff_id in Maintenance_Record → User | Rule 4: FK on N-side. Correct. |
+|---|---|---|
+| submits (User → Booking, 1:N) | requester_id FK in Booking → User(user_id), NOT NULL | Rule 4: FK on N-side, total participation |
+| reserves (Booking → Space, N:1) | space_code FK in Booking → Space(space_code), NOT NULL | Rule 4: FK on N-side, total participation |
+| makes (User → Approval, 1:N) | approver_id FK in Approval → User(user_id), NOT NULL | Rule 4: FK on N-side, total participation |
+| reviews (Approval ↔ Booking, 1:1) | booking_id FK (UNIQUE) in Approval → Booking(booking_id), NOT NULL | Rule 3: FK in total participation side with UNIQUE |
+| conducts (User → Session, 1:N) | conductor_id FK in Session → User(user_id), NOT NULL | Rule 4: FK on N-side, total participation |
+| tracks (Session ↔ Booking, 1:1) | booking_id FK (UNIQUE) in Session → Booking(booking_id), NOT NULL | Rule 3: FK in total participation side with UNIQUE |
+| reports (User → Maintenance Record, 1:N) | reporter_id FK in Maintenance_Record → User(user_id), NOT NULL | Rule 4: FK on N-side, total participation |
+| pertains_to (Maintenance Record → Space, N:1) | space_code FK in Maintenance_Record → Space(space_code), NOT NULL | Rule 4: FK on N-side, total participation |
+| equipped_with (Space ↔ Facility, M:N) | Space_Facility associative relation; PK (space_code, facility_id); quantity attribute | Rule 5: associative relation with composite PK |
+| assigned_to (User → Maintenance Record, 1:N) | assigned_staff_id FK in Maintenance_Record → User(user_id), NOT NULL | Rule 4: FK on N-side, total participation |
 
 #### Incorrect Relationship Mappings
 
@@ -85,7 +89,7 @@ None.
 
 #### Missing Relationships
 
-None. All 10 relationships from the ERD are represented.
+None.
 
 ---
 
@@ -94,17 +98,18 @@ None. All 10 relationships from the ERD are represented.
 #### Correct Relationship Relations
 
 | Relation | Verification |
-|----------|-------------|
-| Space_Facility | M:N associative relation with correct PK (space_code, facility_id), quantity attribute, and FKs to Space and Facility. |
+|---|---|
+| Space_Facility | Associative relation for M:N equipped_with; PK = (space_code, facility_id); includes quantity attribute; FKs reference Space and Facility |
 
 #### Incorrect Relationship Relations
 
-None. Only one relationship relation (Space_Facility) exists, and it is correctly defined.
+None.
 
 ### Evidence
 
-- ERD: Section 4 (Relationships) — 10 relationships documented with cardinalities and participation.
-- Relational Schema: Section 3 (Relationship Mapping) and Section 5 (Foreign Key Analysis).
+- ERD (outputs/02-erd-design-G7.md): 10 relationships documented with cardinalities and participation constraints.
+- Relational Schema (outputs/03-logical-design-G7.md): All 10 relationships represented through 11 FK references (two FKs for M:N associative relation) and 2 UNIQUE constraints (for 1:1 relationships).
+- Mapping rules from logical-design SKILL.md applied correctly.
 
 ---
 
@@ -117,163 +122,257 @@ None. Only one relationship relation (Space_Facility) exists, and it is correctl
 #### Composite Attributes
 
 | Construct | Verification | Issue |
-|-----------|-------------|-------|
-| User.full_name | Decomposed into first_name and last_name in User relation. Rule 8 correctly applied. | None |
+|---|---|---|
+| User.full_name → first_name, last_name | Correctly decomposed via Rule 8 | None |
 
 #### Multivalued Attributes
 
 | Construct | Verification | Issue |
-|-----------|-------------|-------|
-| None identified | No multivalued attributes in ERD. No separate relations needed. | None |
+|---|---|---|
+| None identified | No multivalued attributes in ERD | None |
 
 #### Weak Entities
 
 | Construct | Verification | Issue |
-|-----------|-------------|-------|
-| Approval (owner: Booking) | Mapped with composite PK (booking_id, approval_id). FK booking_id → Booking. Rule 2 correctly applied. | None |
-| Session (owner: Booking) | Mapped with composite PK (booking_id, session_id). FK booking_id → Booking. Rule 2 correctly applied. | None |
-
-#### Recursive Relationships
-
-| Construct | Verification | Issue |
-|-----------|-------------|-------|
-| None identified | — | N/A |
+|---|---|---|
+| None identified | All 7 entities classified as strong | None |
 
 #### N-ary Relationships
 
 | Construct | Verification | Issue |
-|-----------|-------------|-------|
-| None identified | — | N/A |
+|---|---|---|
+| None identified | All relationships are binary | None |
 
-#### Subtypes and Supertypes
+#### Recursive Relationships
 
 | Construct | Verification | Issue |
-|-----------|-------------|-------|
-| None identified | — | N/A |
+|---|---|---|
+| None identified | No recursive relationships in ERD | None |
 
 #### Derived Attributes
 
 | Construct | Verification | Issue |
-|-----------|-------------|-------|
-| (none stored) | Rule 13 followed. No derived attributes stored. | None |
+|---|---|---|
+| None identified | No derived attributes stored per Rule 13 | None |
 
 #### Mapping Rule Validation
 
 | Mapping Rule | Verification | Issue |
-|-------------|-------------|-------|
-| Rule 1 — Strong Entity | Applied to User, Space, Facility, Booking, Maintenance_Record | Correct |
-| Rule 2 — Weak Entity | Applied to Approval, Session | Correct |
-| Rule 3 — Binary 1:1 | reviews and tracks handled via weak entity mapping (Rule 2 alternative for identifying 1:1) | Acceptable alternative |
-| Rule 4 — Binary 1:N | Applied to submits, reserves, makes, conducts, reports, pertains_to, assigned_to | Correct |
-| Rule 5 — Binary M:N | Applied to equipped_with via Space_Facility | Correct |
-| Rule 8 — Composite Attribute | full_name decomposed into first_name, last_name | Correct |
-| Rule 9 — Relationship Attribute | quantity stored in Space_Facility | Correct |
-| Rule 11 — Candidate Key | email, (building, floor, room_number), facility_name preserved | Correct |
-| Rule 13 — Derived Attributes | No derived attributes stored | Correct |
+|---|---|---|
+| Rule 1 — Strong Entity | All 7 entities mapped correctly | None |
+| Rule 3 — Binary 1:1 | reviews and tracks mapped via FK + UNIQUE on total participation side | None |
+| Rule 4 — Binary 1:N | All seven 1:N relationships mapped correctly via FK on N-side | None |
+| Rule 5 — Binary M:N | equipped_with mapped via Space_Facility associative relation | None |
+| Rule 8 — Composite Attribute | full_name decomposed into first_name, last_name | None |
+| Rule 9 — Relationship Attribute | quantity preserved in Space_Facility | None |
+| Rule 11 — Candidate Key | email, (building, floor, room_number), facility_name preserved | None |
+| Rule 13 — Derived Attributes | No derived attributes stored | None |
 
 ### Evidence
 
-- ERD: Sections 2 (Attributes), 4 (Relationships), 6 (ERD Validation).
-- Relational Schema: Section 1 (Mapping Inventory), Section 4 (Special Construct Resolution).
-- Mapping Rules: logical-design SKILL.md.
+- ERD (outputs/02-erd-design-G7.md): Section 2 documents composite attribute User.full_name; Section 4 documents all relationships as binary; ERD-A04 confirms no derived attributes; ERD-A05 confirms no multivalued attributes.
+- Relational Schema (outputs/03-logical-design-G7.md): Section 4 documents composite attribute resolution; Section 3 documents relationship mapping.
+- Mapping rules (logical-design SKILL.md): All rules correctly applied.
 
 ---
 
 ## 4. Constraint Validation
 
-### Status: PASS (with minor documentation gaps)
+### Status: PASS
 
 ---
 
-### 4.1 Domain Constraints
+## 4.1 Domain Constraints
 
-#### Findings
+### Findings
 
-| Relation | Attribute | Constraint | Status | Issue |
-|----------|-----------|------------|--------|-------|
-| User | role | Enumerated values: student, lecturer, teaching_assistant, facility_staff, department_administrator, facility_manager | PASS | Domain constraint documented in entity catalog; enumeration defined |
-| User | account_status | Enumerated values: active, suspended | PASS | Domain documented |
-| User | first_name, last_name | Composite decomposed; NOT NULL implied | PASS | Component attributes present |
-| User | email | UNIQUE (candidate key) | PASS | UK documented |
-| Space | space_type | Enumerated values: auditorium, classroom, computer_laboratory, project_laboratory, meeting_room, student_workspace | PASS | Domain documented |
-| Space | status | Enumerated values: available, in_use, under_maintenance, temporarily_closed, retired | PASS | Domain documented |
-| Space | capacity | Integer, must be positive | PASS | Value range noted; exact constraint is SQL-level |
-| Space | (building, floor, room_number) | UNIQUE composite (candidate key) | PASS | CK documented |
-| Booking | purpose | Enumerated values: lecture, examination, seminar, workshop, meeting, student_activity, administrative_event | PASS | Domain documented |
-| Booking | status | Enumerated: pending, approved, rejected, cancelled, checked_in, completed, no_show | PASS | Domain documented |
-| Approval | decision | Enumerated: approved, rejected | PASS | Domain documented |
-| Maintenance_Record | status | Enumerated: reported, in_progress, completed | PASS | Domain documented |
-| Maintenance_Record | completion_time | Nullable (not required for in-progress records) | PASS | Nullability implied but not explicitly documented as NOT NULL for non-completion attributes |
-| Maintenance_Record | result_note | Nullable | PASS | Same as above |
+| Relation | Attribute | Constraint Type | Expected Constraint | Status | Issue |
+|---|---|---|---|---|---|
+| User | role | Domain (enum) | One of: student, lecturer, teaching_assistant, facility_staff, department_administrator, facility_manager | PASS | To be enforced via CHECK or enum in implementation |
+| User | account_status | Domain (enum) | One of: active, suspended | PASS | To be enforced via CHECK or enum in implementation |
+| User | email | UNIQUE | University email must be unique | PASS | Documented as candidate key |
+| Space | space_type | Domain (enum) | One of: auditorium, classroom, computer_laboratory, project_laboratory, meeting_room, student_workspace | PASS | To be enforced via CHECK or enum in implementation |
+| Space | status | Domain (enum) | One of: available, in_use, under_maintenance, temporarily_closed, retired | PASS | To be enforced via CHECK or enum in implementation |
+| Space | capacity | Domain (range) | Must be positive integer | PASS | To be enforced via CHECK in implementation |
+| Space | (building, floor, room_number) | UNIQUE | Physical location must be unique | PASS | Documented as candidate key |
+| Facility | facility_name | UNIQUE | Facility names must be unique | PASS | Documented as candidate key |
+| Booking | purpose | Domain (enum) | One of: lecture, examination, seminar, workshop, meeting, student_activity, administrative_event | PASS | To be enforced via CHECK or enum in implementation |
+| Booking | status | Domain (enum) | One of: pending, approved, rejected, cancelled, checked_in, completed, no_show | PASS | To be enforced via CHECK or enum in implementation |
+| Booking | expected_participants | Domain (range) | Must be positive integer | PASS | To be enforced via CHECK in implementation |
+| Approval | decision | Domain (enum) | One of: approved, rejected | PASS | To be enforced via CHECK or enum in implementation |
+| Maintenance_Record | status | Domain (enum) | One of: reported, in_progress, completed | PASS | To be enforced via CHECK or enum in implementation |
 
-#### Domain Constraint Violations
+### Domain Constraint Violations
 
-None. All enumerated domains defined in the entity catalog are represented in the schema. NOT NULL constraints are implied by the analysis but not explicitly annotated in the schema diagram.
+None. Domain constraint specification is deferred to implementation stage as expected.
 
 ### Evidence
 
-- Schema: Section 8 (Relational Schema Diagram) — data types specified.
-- Entity Catalog (business analysis): All enumeration values documented.
+- Schema (outputs/03-logical-design-G7.md): Logical types (string, int, datetime) defined; enumerated values documented in business requirements; explicit domain specifications belong to implementation stage.
 
 ---
 
-### 4.2 Entity Integrity Constraints
+## 4.2 Key Constraints
 
-#### Findings
+### Findings
+
+| Relation | Key Type | Attributes | Validation Item | Status | Issue |
+|---|---|---|---|---|---|
+| User | Primary Key | user_id | PK is unique identifier | PASS | |
+| User | Candidate Key | email | Unique university email | PASS | |
+| Space | Primary Key | space_code | PK is unique identifier | PASS | |
+| Space | Candidate Key | (building, floor, room_number) | Unique physical location | PASS | |
+| Facility | Primary Key | facility_id | PK is unique identifier | PASS | |
+| Facility | Candidate Key | facility_name | Unique facility name | PASS | |
+| Booking | Primary Key | booking_id | PK is unique identifier | PASS | |
+| Approval | Primary Key | approval_id | PK is unique identifier | PASS | |
+| Session | Primary Key | session_id | PK is unique identifier | PASS | |
+| Maintenance_Record | Primary Key | maintenance_id | PK is unique identifier | PASS | |
+| Space_Facility | Primary Key | (space_code, facility_id) | Composite PK prevents duplicate entries | PASS | |
+| Approval | UNIQUE | booking_id | Enforces 1:1 reviews relationship | PASS | |
+| Session | UNIQUE | booking_id | Enforces 1:1 tracks relationship | PASS | |
+
+### Key Constraint Violations
+
+None.
+
+### Evidence
+
+- Schema (outputs/03-logical-design-G7.md): Section 2 (Entity Mapping) documents all PKs and candidate keys; Section 3 documents UNIQUE constraints on 1:1 relationship FKs; Section 6 (Candidate Key Analysis) documents all candidate keys.
+
+---
+
+## 4.3 Entity Integrity Constraints
+
+### Findings
 
 | Relation | Validation Item | Status | Issue |
-|----------|----------------|--------|-------|
-| User | PK: user_id defined. NOT NULL, UNIQUE. | PASS | PK clearly identified |
-| Space | PK: space_code defined. NOT NULL, UNIQUE. | PASS | PK clearly identified |
-| Facility | PK: facility_id defined. NOT NULL, UNIQUE. | PASS | PK clearly identified |
-| Booking | PK: booking_id defined. NOT NULL, UNIQUE. | PASS | PK clearly identified |
-| Approval | PK: (booking_id, approval_id) composite. Both components NOT NULL. | PASS | Composite PK defined; booking_id is both FK and PK component |
-| Session | PK: (booking_id, session_id) composite. Both components NOT NULL. | PASS | Composite PK defined; booking_id is both FK and PK component |
-| Maintenance_Record | PK: maintenance_id defined. NOT NULL, UNIQUE. | PASS | PK clearly identified |
-| Space_Facility | PK: (space_code, facility_id) composite. Both NOT NULL. | PASS | Composite PK correctly defined |
+|---|---|---|---|
+| User | Primary key attributes are NOT NULL | PASS | user_id is PK, NOT NULL |
+| User | Primary key attributes are UNIQUE | PASS | user_id is PK, UNIQUE |
+| Space | Primary key attributes are NOT NULL | PASS | space_code is PK, NOT NULL |
+| Space | Primary key attributes are UNIQUE | PASS | space_code is PK, UNIQUE |
+| Facility | Primary key attributes are NOT NULL | PASS | facility_id is PK, NOT NULL |
+| Facility | Primary key attributes are UNIQUE | PASS | facility_id is PK, UNIQUE |
+| Booking | Primary key attributes are NOT NULL | PASS | booking_id is PK, NOT NULL |
+| Booking | Primary key attributes are UNIQUE | PASS | booking_id is PK, UNIQUE |
+| Approval | Primary key attributes are NOT NULL | PASS | approval_id is PK, NOT NULL |
+| Approval | Primary key attributes are UNIQUE | PASS | approval_id is PK, UNIQUE |
+| Session | Primary key attributes are NOT NULL | PASS | session_id is PK, NOT NULL |
+| Session | Primary key attributes are UNIQUE | PASS | session_id is PK, UNIQUE |
+| Maintenance_Record | Primary key attributes are NOT NULL | PASS | maintenance_id is PK, NOT NULL |
+| Maintenance_Record | Primary key attributes are UNIQUE | PASS | maintenance_id is PK, UNIQUE |
+| Space_Facility | Composite PK components do not allow NULL | PASS | Both space_code and facility_id are NOT NULL |
+| Space_Facility | Primary key is clearly identified | PASS | PK = (space_code, facility_id) |
 
-#### Violations
+### Entity Integrity Violations
 
-None. All relations have clearly identified primary keys. All PKs are defined as NOT NULL and UNIQUE. No composite PK allows NULL values per entity integrity rules.
+None.
 
 ### Evidence
 
-- Schema: Section 7 (Integrity Constraint Analysis) — all PKs documented with NOT NULL, UNIQUE constraints.
+- Schema (outputs/03-logical-design-G7.md): Section 7 (Integrity Constraint Analysis) documents all primary key constraints as NOT NULL and UNIQUE.
 
 ---
 
-### 4.3 Referential Integrity Constraints
+## 4.4 Referential Integrity Constraints
 
-#### Findings
+### Findings
 
-| Foreign Key | Validation Item | Status | Issue |
-|-------------|----------------|--------|-------|
-| Booking.requester_id → User(user_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Booking.space_code → Space(space_code) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Approval.booking_id → Booking(booking_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL (PK component). | PASS | Correct |
-| Approval.approver_id → User(user_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Session.booking_id → Booking(booking_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL (PK component). | PASS | Correct |
-| Session.conductor_id → User(user_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Maintenance_Record.reporter_id → User(user_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Maintenance_Record.space_code → Space(space_code) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Maintenance_Record.assigned_staff_id → User(user_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Space_Facility.space_code → Space(space_code) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
-| Space_Facility.facility_id → Facility(facility_id) | Referenced relation and key exist. Domains compatible. FK NOT NULL. | PASS | Correct |
+| Foreign Key | Referenced Relation | Validation Item | Status | Issue |
+|---|---|---|---|---|
+| Booking.requester_id | User(user_id) | Referenced key exists | PASS | user_id is PK of User |
+| Booking.requester_id | User(user_id) | Referenced attribute is a key | PASS | user_id is PK |
+| Booking.requester_id | User(user_id) | Compatible domain and data type | PASS | Both are logical string type |
+| Booking.space_code | Space(space_code) | Referenced key exists | PASS | space_code is PK of Space |
+| Booking.space_code | Space(space_code) | Referenced attribute is a key | PASS | space_code is PK |
+| Approval.booking_id | Booking(booking_id) | Referenced key exists | PASS | booking_id is PK of Booking |
+| Approval.booking_id | Booking(booking_id) | Referenced attribute is a key | PASS | booking_id is PK |
+| Approval.approver_id | User(user_id) | Referenced key exists | PASS | user_id is PK of User |
+| Approval.approver_id | User(user_id) | Referenced attribute is a key | PASS | user_id is PK |
+| Session.booking_id | Booking(booking_id) | Referenced key exists | PASS | booking_id is PK of Booking |
+| Session.booking_id | Booking(booking_id) | Referenced attribute is a key | PASS | booking_id is PK |
+| Session.conductor_id | User(user_id) | Referenced key exists | PASS | user_id is PK of User |
+| Session.conductor_id | User(user_id) | Referenced attribute is a key | PASS | user_id is PK |
+| Maintenance_Record.reporter_id | User(user_id) | Referenced key exists | PASS | user_id is PK of User |
+| Maintenance_Record.reporter_id | User(user_id) | Referenced attribute is a key | PASS | user_id is PK |
+| Maintenance_Record.space_code | Space(space_code) | Referenced key exists | PASS | space_code is PK of Space |
+| Maintenance_Record.space_code | Space(space_code) | Referenced attribute is a key | PASS | space_code is PK |
+| Maintenance_Record.assigned_staff_id | User(user_id) | Referenced key exists | PASS | user_id is PK of User |
+| Maintenance_Record.assigned_staff_id | User(user_id) | Referenced attribute is a key | PASS | user_id is PK |
+| Space_Facility.space_code | Space(space_code) | Referenced key exists | PASS | space_code is PK of Space |
+| Space_Facility.space_code | Space(space_code) | Referenced attribute is a key | PASS | space_code is PK |
+| Space_Facility.facility_id | Facility(facility_id) | Referenced key exists | PASS | facility_id is PK of Facility |
+| Space_Facility.facility_id | Facility(facility_id) | Referenced attribute is a key | PASS | facility_id is PK |
 
-#### Violations
+### Referential Integrity Violations
 
-None. All 11 foreign keys reference valid primary keys in their referenced relations. All FKs are NOT NULL, consistent with total participation constraints.
+None.
 
 ### Evidence
 
-- Schema: Section 5 (Foreign Key Analysis) — all 11 FK references documented.
-- Schema: Section 7 (Referential Integrity) — NOT NULL constraints documented for all FKs.
+- Schema (outputs/03-logical-design-G7.md): Section 5 (Foreign Key Analysis) documents all 11 FK references with their referenced relations and attributes.
+
+---
+
+## 4.5 NULL Constraint Validation
+
+### Findings
+
+| Relation | Attribute | Validation Item | Status | Issue |
+|---|---|---|---|---|
+| All relations | PK attributes | NOT NULL is correct | PASS | PKs enforce NOT NULL by definition |
+| Booking | requester_id | NOT NULL is correct | PASS | Total participation of Booking in submits |
+| Booking | space_code | NOT NULL is correct | PASS | Total participation of Booking in reserves |
+| Approval | booking_id | NOT NULL is correct | PASS | Total participation of Approval in reviews |
+| Approval | approver_id | NOT NULL is correct | PASS | Total participation of Approval in makes |
+| Session | booking_id | NOT NULL is correct | PASS | Total participation of Session in tracks |
+| Session | conductor_id | NOT NULL is correct | PASS | Total participation of Session in conducts |
+| Maintenance_Record | reporter_id | NOT NULL is correct | PASS | Total participation in reports |
+| Maintenance_Record | space_code | NOT NULL is correct | PASS | Total participation in pertains_to |
+| Maintenance_Record | assigned_staff_id | NOT NULL is correct | PASS | Total participation in assigned_to |
+| Space_Facility | space_code | NOT NULL is correct | PASS | Component of composite PK |
+| Space_Facility | facility_id | NOT NULL is correct | PASS | Component of composite PK |
+
+### NULL Constraint Violations
+
+None. The logical schema correctly identifies total participation as NOT NULL for all foreign keys. Optional attributes (description, decision_note, usage_notes, completion_time, result_note, phone_number) allow NULL by default, matching partial participation semantics. Specific NULL constraints on these optional attributes will be finalized in the implementation stage.
+
+### Evidence
+
+- Schema (outputs/03-logical-design-G7.md): Section 7 (Integrity Constraint Analysis) documents FK NOT NULL for all foreign keys based on participation constraints from the ERD.
+
+---
+
+## 4.6 Constraint Consistency Validation
+
+### Findings
+
+| Relation | Validation Item | Status | Issue |
+|---|---|---|---|
+| All relations | Constraints do not conflict with each other | PASS | No conflicting constraint definitions |
+| All relations | PK, UNIQUE, and FK constraints are consistent | PASS | All UNIQUE FKs (booking_id) are also NOT NULL |
+| All relations | FKs reference valid keys without violating entity integrity | PASS | All FKs reference PKs of referenced relations |
+| All relations | Domain constraints are consistent with attribute definitions | PASS | Logical types are consistent across all attributes |
+| All relations | Composite key and FK definitions are consistent | PASS | Space_Facility composite PK correctly matches FK definitions |
+
+### Constraint Consistency Violations
+
+None.
+
+### Evidence
+
+- All FK references in Section 5 of the logical design point to existing PKs in referenced relations.
+- No circular dependency or self-referencing FK exists.
+- All composite key components are included as FKs in Space_Facility.
 
 ---
 
 # Business Rule Validation
 
-## Status: PASS
+## Status: ACCEPTABLE WITH CORRECTIONS
+
+For each business rule, verification of enforceability using table-level database constraints only.
 
 ---
 
@@ -289,14 +388,14 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- NOT NULL constraint on User.email
-- Domain constraint ensuring email format (domain-level; exact validation is SQL-level)
-- No duplicate emails (candidate key UNIQUE)
+- NOT NULL on user_id, email
+- UNIQUE on user_id, email
+- PK on user_id
 
 **Constraints Present In Schema**
 
-- User.email defined as candidate key (UK) in Section 6.
-- email attribute present in User relation.
+- User.user_id is PK, NOT NULL, UNIQUE
+- User.email is candidate key with UNIQUE constraint
 
 **Status**
 
@@ -304,7 +403,11 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Issue**
 
-- None.
+- None
+
+**Recommended Correction**
+
+- None
 
 ---
 
@@ -320,11 +423,11 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- Domain constraint on User.role with enumerated values.
+- Domain constraint (CHECK or enum) on User.role
 
 **Constraints Present In Schema**
 
-- User.role attribute present (string type).
+- User.role defined as string
 
 **Status**
 
@@ -332,7 +435,11 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Issue**
 
-- Enumeration values documented in entity catalog; schema relies on domain documentation.
+- No CHECK constraint defined at logical schema level; expected in implementation
+
+**Recommended Correction**
+
+- Add CHECK constraint or enumerated type on User.role in implementation
 
 ---
 
@@ -348,15 +455,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- Domain constraint on Space.status with enumerated values.
+- Domain constraint (CHECK or enum) on Space.status
 
 **Constraints Present In Schema**
 
-- Space.status attribute present.
+- Space.status defined as string
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
+
+**Recommended Correction**
+
+- Add CHECK constraint or enumerated type in implementation
 
 ---
 
@@ -372,15 +487,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- Domain constraint on Booking.purpose with enumerated values.
+- Domain constraint (CHECK or enum) on Booking.purpose
 
 **Constraints Present In Schema**
 
-- Booking.purpose attribute present.
+- Booking.purpose defined as string
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
+
+**Recommended Correction**
+
+- Add CHECK constraint or enumerated type in implementation
 
 ---
 
@@ -396,15 +519,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- Domain constraint on Booking.status with enumerated values.
+- Domain constraint (CHECK or enum) on Booking.status
 
 **Constraints Present In Schema**
 
-- Booking.status attribute present.
+- Booking.status defined as string
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
+
+**Recommended Correction**
+
+- Add CHECK constraint or enumerated type in implementation
 
 ---
 
@@ -416,15 +547,15 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Yes
 
 **Required Constraints**
 
-- N/A (data retention policy, not a data integrity constraint)
+- Schema includes persisting tables for Booking, Session, and Maintenance_Record
 
 **Constraints Present In Schema**
 
-- The schema provides tables (Booking, Session, Maintenance_Record) designed to retain historical data.
+- All booking and maintenance data is stored in permanent tables
 
 **Status**
 
@@ -432,7 +563,11 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Issue**
 
-- This is a data retention policy requirement. The schema supports it structurally by providing persistent tables, but preventing deletion of historical records requires application-level or trigger-level enforcement. Not a schema-level constraint.
+- None
+
+**Recommended Correction**
+
+- None
 
 ---
 
@@ -448,16 +583,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- FOREIGN KEY (requester_id → User.user_id) with NOT NULL constraint.
-- PRIMARY KEY on Booking ensures each booking is unique.
+- FK requester_id in Booking → User(user_id), NOT NULL
 
 **Constraints Present In Schema**
 
-- Booking.requester_id FK → User.user_id, documented as NOT NULL in Section 7.
+- Booking.requester_id FK, NOT NULL
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
 
 ---
 
@@ -473,15 +611,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- FOREIGN KEY (space_code → Space.space_code) with NOT NULL constraint.
+- FK space_code in Booking → Space(space_code), NOT NULL
 
 **Constraints Present In Schema**
 
-- Booking.space_code FK → Space.space_code, documented as NOT NULL.
+- Booking.space_code FK, NOT NULL
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
 
 ---
 
@@ -497,23 +639,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- UNIQUE constraint on Approval.booking_id to enforce 1:1 from Booking side.
+- FK booking_id in Approval with UNIQUE constraint
 
 **Constraints Present In Schema**
 
-- Approval.booking_id is part of composite PK (booking_id, approval_id) but is NOT declared UNIQUE alone.
+- Approval.booking_id FK, UNIQUE, NOT NULL
 
 **Status**
 
-- FAIL
+- PASS
 
 **Issue**
 
-- The 1:1 reviews relationship is mapped via weak entity mapping (Rule 2), which places booking_id in Approval as FK and composite PK component. However, this only enforces that each Approval row references exactly one Booking. It does NOT prevent multiple Approval rows with the same booking_id, which would violate "at most one approval per booking." A UNIQUE constraint on Approval.booking_id is required.
-
-**Recommended Correction**
-
-- Add a UNIQUE constraint on Approval.booking_id to enforce the 1:1 cardinality constraint from Booking's perspective.
+- None
 
 ---
 
@@ -529,23 +667,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- UNIQUE constraint on Session.booking_id to enforce 1:1 from Booking side.
+- FK booking_id in Session with UNIQUE constraint
 
 **Constraints Present In Schema**
 
-- Session.booking_id is part of composite PK (booking_id, session_id) but is NOT declared UNIQUE alone.
+- Session.booking_id FK, UNIQUE, NOT NULL
 
 **Status**
 
-- FAIL
+- PASS
 
 **Issue**
 
-- Same structural issue as BR-09. The tracks relationship is 1:1 from Booking to Session, but the schema permits multiple Session rows with the same booking_id. A UNIQUE constraint on Session.booking_id is needed.
-
-**Recommended Correction**
-
-- Add a UNIQUE constraint on Session.booking_id to enforce the 1:1 cardinality constraint from Booking's perspective.
+- None
 
 ---
 
@@ -561,16 +695,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- FOREIGN KEY (Approval.booking_id → Booking.booking_id) with NOT NULL.
-- booking_id is part of Approval's PK, ensuring each approval references exactly one booking.
+- FK booking_id in Approval → Booking(booking_id), NOT NULL
 
 **Constraints Present In Schema**
 
-- Approval.booking_id FK → Booking.booking_id, NOT NULL, composite PK component.
+- Approval.booking_id FK, NOT NULL
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
 
 ---
 
@@ -586,16 +723,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- FOREIGN KEY (Session.booking_id → Booking.booking_id) with NOT NULL.
-- booking_id is part of Session's PK, ensuring each session references exactly one booking.
+- FK booking_id in Session → Booking(booking_id), NOT NULL
 
 **Constraints Present In Schema**
 
-- Session.booking_id FK → Booking.booking_id, NOT NULL, composite PK component.
+- Session.booking_id FK, NOT NULL
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
 
 ---
 
@@ -611,19 +751,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: Booking.status must be 'approved' when Session.booking_id references Booking.booking_id
 
 **Constraints Present In Schema**
 
-- N/A
+- FK booking_id in Session ensures referential integrity but cannot validate Booking.status value
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- This requires cross-table validation: when inserting a Session, the corresponding Booking.status must equal 'approved'. This cannot be enforced using table-level constraints (requires trigger or application logic).
+- Requires trigger or application logic to validate that the referenced booking has status 'approved'
+
+**Recommended Correction**
+
+- Implement trigger on Session INSERT that checks Booking.status = 'approved', or enforce in application logic
 
 ---
 
@@ -639,19 +783,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Multi-row, multi-table validation: No two rows in Booking with same space_code and status = 'approved' may have overlapping [requested_start_time, requested_end_time)
 
 **Constraints Present In Schema**
 
-- N/A
+- FK space_code ensures valid space reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- This requires checking overlapping time ranges across multiple rows in Booking for the same space_code where status = 'approved'. This involves multi-row validation within the same table and cannot be enforced with table-level constraints alone (requires exclusion constraint, trigger, or application logic).
+- Requires trigger, exclusion constraint (not available in MS SQL Server), or application logic to detect overlapping time ranges
+
+**Recommended Correction**
+
+- Implement trigger or application-level conflict detection logic
 
 ---
 
@@ -667,15 +815,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- FOREIGN KEY (reporter_id → User.user_id) with NOT NULL.
+- FK reporter_id in Maintenance_Record → User(user_id), NOT NULL
 
 **Constraints Present In Schema**
 
-- Maintenance_Record.reporter_id FK → User.user_id, NOT NULL.
+- Maintenance_Record.reporter_id FK, NOT NULL
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
 
 ---
 
@@ -687,19 +839,28 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- Yes
+- No
 
 **Required Constraints**
 
-- FOREIGN KEY (assigned_staff_id → User.user_id) with NOT NULL.
+- FK assigned_staff_id ensures a valid user is referenced (PASS for "exactly one")
+- User.role = 'facility_staff' cannot be enforced via FK (FAIL for "facility staff member")
 
 **Constraints Present In Schema**
 
-- Maintenance_Record.assigned_staff_id FK → User.user_id, NOT NULL.
+- Maintenance_Record.assigned_staff_id FK, NOT NULL
 
 **Status**
 
-- PASS
+- Not Enforceable
+
+**Issue**
+
+- The FK ensures a valid user is assigned but cannot enforce that the assigned user has role = 'facility_staff'
+
+**Recommended Correction**
+
+- Implement trigger or application logic to validate the assigned user's role
 
 ---
 
@@ -715,15 +876,19 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- FOREIGN KEY (space_code → Space.space_code) with NOT NULL.
+- FK space_code in Maintenance_Record → Space(space_code), NOT NULL
 
 **Constraints Present In Schema**
 
-- Maintenance_Record.space_code FK → Space.space_code, NOT NULL.
+- Maintenance_Record.space_code FK, NOT NULL
 
 **Status**
 
 - PASS
+
+**Issue**
+
+- None
 
 ---
 
@@ -735,23 +900,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Yes (the rule describes an allowable situation, not a mandatory constraint)
 
 **Required Constraints**
 
-- N/A (cross-domain CHECK constraint needed)
+- Separate FKs (reporter_id, assigned_staff_id) both referencing User(user_id) allow different users
 
 **Constraints Present In Schema**
 
-- Maintenance_Record has two distinct FKs to User: reporter_id and assigned_staff_id.
+- Maintenance_Record has two distinct FKs to User: reporter_id and assigned_staff_id
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- PASS
 
 **Issue**
 
-- This rule requires a constraint that reporter_id != assigned_staff_id within the same row. This is a cross-domain CHECK constraint (comparing two different columns), which is not available at the relational schema level. Can be enforced at SQL level with a CHECK (reporter_id != assigned_staff_id) constraint.
+- None
 
 ---
 
@@ -767,19 +932,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Multi-row validation: No two rows in Maintenance_Record with same space_code and status IN ('reported', 'in_progress') may have overlapping time periods
 
 **Constraints Present In Schema**
 
-- N/A
+- FK space_code ensures valid space reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires checking overlapping time periods across multiple rows in Maintenance_Record where status is 'reported' or 'in_progress' for the same space_code. Multi-row temporal overlap detection cannot be enforced with table-level constraints (requires exclusion constraint, trigger, or application logic).
+- Requires trigger or application logic to detect overlapping active maintenance records for the same space
+
+**Recommended Correction**
+
+- Implement trigger or application-level conflict detection logic
 
 ---
 
@@ -795,19 +964,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: User.account_status must be 'active' when creating a Booking with requester_id referencing User.user_id
 
 **Constraints Present In Schema**
 
-- N/A
+- FK requester_id ensures valid user reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires cross-table validation: when inserting a Booking, check the corresponding User.account_status = 'active'. This involves referencing a value in another table beyond a simple FK existence check. Requires trigger or application logic.
+- Requires trigger or application logic to validate the requester's account_status
+
+**Recommended Correction**
+
+- Implement trigger on Booking INSERT that checks User.account_status = 'active'
 
 ---
 
@@ -823,19 +996,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: User.role IN ('facility_staff', 'facility_manager') when creating an Approval with approver_id
 
 **Constraints Present In Schema**
 
-- N/A
+- FK approver_id ensures valid user reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires cross-table role validation: when inserting an Approval, the corresponding User.role must be 'facility_staff' or 'facility_manager'. Cannot be enforced with table-level constraints alone (requires trigger or application logic).
+- Requires trigger or application logic to validate the approver's role
+
+**Recommended Correction**
+
+- Implement trigger on Approval INSERT that checks User.role in allowed roles
 
 ---
 
@@ -851,19 +1028,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: User.role = 'facility_staff' when creating a Session with conductor_id
 
 **Constraints Present In Schema**
 
-- N/A
+- FK conductor_id ensures valid user reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Same as BR-21: cross-table role validation against User.role. Requires trigger or application logic.
+- Requires trigger or application logic to validate the conductor's role
+
+**Recommended Correction**
+
+- Implement trigger on Session INSERT that checks User.role = 'facility_staff'
 
 ---
 
@@ -879,19 +1060,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: User.role = 'facility_staff' when setting assigned_staff_id in Maintenance_Record
 
 **Constraints Present In Schema**
 
-- N/A
+- FK assigned_staff_id ensures valid user reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Same as BR-21: cross-table role validation against User.role. Requires trigger or application logic.
+- Requires trigger or application logic to validate the assigned staff's role
+
+**Recommended Correction**
+
+- Implement trigger or application logic to check User.role = 'facility_staff'
 
 ---
 
@@ -907,19 +1092,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: Booking.status must be 'pending' when creating an Approval referencing that booking
 
 **Constraints Present In Schema**
 
-- N/A
+- FK booking_id in Approval ensures valid booking reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- This is a state transition rule requiring cross-table validation: before inserting an Approval, check that the related Booking.status = 'pending'. Also involves checking that a status transition is valid before it occurs. Requires trigger or application logic.
+- Standard FK cannot validate the status of the referenced booking
+
+**Recommended Correction**
+
+- Implement trigger on Approval INSERT that checks Booking.status = 'pending'
 
 ---
 
@@ -935,19 +1124,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table state transition: Requires updating Booking.status when Session is created, and valid state transition (approved → checked_in)
 
 **Constraints Present In Schema**
 
-- N/A
+- FK booking_id in Session ensures valid booking reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- State transition logic requiring an UPDATE on Booking.status when a Session is created. Requires trigger or application logic.
+- State transition logic and cross-table update require trigger or application logic
+
+**Recommended Correction**
+
+- Implement trigger on Session INSERT that updates Booking.status and validates current status
 
 ---
 
@@ -963,19 +1156,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table state transition: Requires updating Booking.status when Session.actual_end_time is set
 
 **Constraints Present In Schema**
 
-- N/A
+- No mechanism to enforce lifecycle state transitions
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- State transition logic. Requires trigger or application logic.
+- Requires trigger or application logic to manage state transitions
+
+**Recommended Correction**
+
+- Implement trigger or application logic to enforce lifecycle state transitions
 
 ---
 
@@ -991,19 +1188,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Automatic time-based detection: Comparing current time with Booking.requested_end_time and Session existence
 
 **Constraints Present In Schema**
 
-- N/A
+- No time-based automation mechanism available
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Time-based automatic state transition requires a scheduled job or trigger with temporal logic. Cannot be enforced with table-level constraints.
+- Requires scheduled job or application logic to detect no-show bookings
+
+**Recommended Correction**
+
+- Implement a scheduled job or background process to identify and update no-show bookings
 
 ---
 
@@ -1019,19 +1220,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table existence validation: If Booking.status = 'approved', there must exist an Approval with booking_id = Booking.booking_id AND decision = 'approved'
 
 **Constraints Present In Schema**
 
-- N/A
+- FK direction is from Approval to Booking; Booking has no FK back to Approval
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires cross-table validation: when Booking.status = 'approved', there must exist an Approval with booking_id = Booking.booking_id AND decision = 'approved'. This is a conditional existence constraint involving multiple tables and attribute values. Requires trigger or application logic.
+- Requires trigger or application logic to ensure approval record exists when booking is approved
+
+**Recommended Correction**
+
+- Implement trigger or application logic to validate the relationship
 
 ---
 
@@ -1043,23 +1248,29 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Partially (rejection_reason NOT NULL when decision = 'rejected' is enforceable via CHECK; cross-table existence is not)
 
 **Required Constraints**
 
-- N/A
+- Within-table: CHECK (decision <> 'rejected' OR rejection_reason IS NOT NULL) — enforceable
+- Cross-table: Existence of Approval with decision = 'rejected' when Booking.status = 'rejected' — not enforceable
 
 **Constraints Present In Schema**
 
-- N/A
+- Approval table structure supports the constraint; CHECK to be added in implementation
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable (cross-table part)
 
 **Issue**
 
-- Same as BR-28 for rejected status. Additionally requires rejection_reason to be NOT NULL when decision = 'rejected' (conditional NOT NULL within same row) — this is a cross-domain CHECK, not available at relational schema level. Can be enforced at SQL level with CHECK constraint, but the cross-table existence check requires trigger or application logic.
+- Cross-table status synchronization requires trigger or application logic
+
+**Recommended Correction**
+
+- Add CHECK (decision <> 'rejected' OR rejection_reason IS NOT NULL) in implementation
+- Implement trigger or application logic for cross-table status consistency
 
 ---
 
@@ -1075,19 +1286,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: When Booking.status = 'checked_in', corresponding Session must have actual_start_time NOT NULL AND initial_condition NOT NULL
 
 **Constraints Present In Schema**
 
-- N/A
+- FK booking_id in Session ensures valid reference; NOT NULL on Session attributes is within-table only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Conditional existence constraint: when Booking.status = 'checked_in', there must exist a Session with booking_id = Booking.booking_id AND actual_start_time IS NOT NULL AND initial_condition IS NOT NULL. Multi-table conditional validation. Requires trigger or application logic.
+- Cross-table status-to-attribute validation requires trigger or application logic
+
+**Recommended Correction**
+
+- Implement trigger or application logic to validate that Session attributes exist when booking is checked_in
 
 ---
 
@@ -1103,19 +1318,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: When Booking.status = 'completed', corresponding Session must have actual_end_time, final_condition, usage_notes all NOT NULL
 
 **Constraints Present In Schema**
 
-- N/A
+- Session table has these attributes; no mechanism to enforce conditional NOT NULL based on Booking.status
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Same pattern as BR-30. Requires trigger or application logic.
+- Cross-table conditional validation requires trigger or application logic
+
+**Recommended Correction**
+
+- Implement trigger or application logic to validate Session attributes when booking is completed
 
 ---
 
@@ -1131,19 +1350,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: Space.status must not be in ('under_maintenance', 'temporarily_closed', 'retired') when creating a Booking with space_code
 
 **Constraints Present In Schema**
 
-- N/A
+- FK space_code in Booking ensures valid space reference only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires cross-table validation: when inserting a Booking, check that the related Space.status is not one of the blocked values. Cannot be enforced with table-level constraints (requires trigger or application logic).
+- Standard FK cannot validate the status of the referenced space
+
+**Recommended Correction**
+
+- Implement trigger on Booking INSERT that checks Space.status
 
 ---
 
@@ -1159,19 +1382,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table, multi-row validation: No active Maintenance_Record (status IN ('reported', 'in_progress')) may exist for the same space_code when creating a Booking
 
 **Constraints Present In Schema**
 
-- N/A
+- FK space_code in both Booking and Maintenance_Record ensure valid references only
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires checking across multiple tables and rows: before inserting a Booking for a Space, verify there are no open Maintenance_Record entries for that Space. Complex multi-table, multi-row conditional check. Requires trigger or application logic.
+- Requires trigger to check for active maintenance records on the same space before allowing a booking
+
+**Recommended Correction**
+
+- Implement trigger on Booking INSERT that checks for active maintenance records on the space
 
 ---
 
@@ -1183,23 +1410,27 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Yes
 
 **Required Constraints**
 
-- N/A (cross-domain CHECK constraint needed)
+- CHECK (status <> 'completed' OR (completion_time IS NOT NULL AND result_note IS NOT NULL))
 
 **Constraints Present In Schema**
 
-- N/A
+- Maintenance_Record has all required attributes; CHECK to be added in implementation
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- PASS
 
 **Issue**
 
-- Requires a conditional NOT NULL constraint: when Maintenance_Record.status = 'completed', completion_time and result_note must be NOT NULL. This is a cross-domain CHECK (status column determines nullability of other columns), which is not available at the relational schema level. Can be enforced at SQL level with CHECK (status != 'completed' OR (completion_time IS NOT NULL AND result_note IS NOT NULL)).
+- CHECK constraint not specified at logical schema level
+
+**Recommended Correction**
+
+- Add CHECK constraint in implementation: CHECK (status <> 'completed' OR (completion_time IS NOT NULL AND result_note IS NOT NULL))
 
 ---
 
@@ -1211,23 +1442,27 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Yes
 
 **Required Constraints**
 
-- N/A (cross-domain CHECK constraint needed)
+- CHECK (requested_start_time < requested_end_time)
 
 **Constraints Present In Schema**
 
-- N/A
+- Booking has both attributes; CHECK to be added in implementation
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- PASS
 
 **Issue**
 
-- Requires a single-row CHECK constraint comparing requested_start_time < requested_end_time. This is a cross-domain CHECK, which is not available at the relational schema level. Can be enforced at SQL level with CHECK (requested_start_time < requested_end_time).
+- CHECK constraint not specified at logical schema level
+
+**Recommended Correction**
+
+- Add CHECK constraint in implementation: CHECK (requested_start_time < requested_end_time)
 
 ---
 
@@ -1243,19 +1478,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Time-dependent validation: requested_start_time > current system time
 
 **Constraints Present In Schema**
 
-- N/A
+- Cannot be enforced with pure relational table-level constraints
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires CHECK comparing requested_start_time to current system time. Temporal constraint requiring a built-in function (e.g., GETDATE()). Not available at relational schema level. Can be enforced at SQL level with CHECK (requested_start_time > GETDATE()), though this is time-dependent.
+- Requires time-dependent validation (CHECK with GETDATE() is implementation-specific and not a pure relational constraint)
+
+**Recommended Correction**
+
+- Enforce in application logic; optionally add CHECK (requested_start_time > GETDATE()) in implementation if supported by DBMS
 
 ---
 
@@ -1271,19 +1510,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: Approval.decision_time < Booking.requested_start_time
 
 **Constraints Present In Schema**
 
-- N/A
+- Approval has FK to Booking but cannot compare attributes across tables
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires cross-table temporal comparison: Approval.decision_time < Booking.requested_start_time. Multi-table validation. Requires trigger or application logic.
+- Requires trigger or application logic to compare timestamps across tables
+
+**Recommended Correction**
+
+- Implement trigger on Approval INSERT that validates decision_time against Booking.requested_start_time
 
 ---
 
@@ -1295,23 +1538,27 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Yes
 
 **Required Constraints**
 
-- N/A (cross-domain CHECK constraint needed)
+- CHECK (actual_start_time < actual_end_time)
 
 **Constraints Present In Schema**
 
-- N/A
+- Session has both attributes; CHECK to be added in implementation
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- PASS
 
 **Issue**
 
-- Requires single-row CHECK comparing actual_start_time < actual_end_time. Cross-domain CHECK not available at relational schema level. Can be enforced at SQL level with CHECK (actual_start_time < actual_end_time).
+- CHECK constraint not specified at logical schema level
+
+**Recommended Correction**
+
+- Add CHECK constraint in implementation: CHECK (actual_start_time < actual_end_time)
 
 ---
 
@@ -1323,23 +1570,27 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Yes
 
 **Required Constraints**
 
-- N/A
+- CHECK (status <> 'completed' OR (completion_time IS NOT NULL AND completion_time > start_time))
 
 **Constraints Present In Schema**
 
-- N/A
+- Maintenance_Record has all required attributes; CHECK to be added in implementation
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- PASS
 
 **Issue**
 
-- Requires a combination of cross-domain temporal comparison (start_time < completion_time) and conditional check (only when status = 'completed'). Cross-domain CHECK not available at relational schema level. Can be partially enforced at SQL level with CHECK.
+- CHECK constraint not specified at logical schema level
+
+**Recommended Correction**
+
+- Add CHECK constraint in implementation: CHECK (status <> 'completed' OR (completion_time IS NOT NULL AND completion_time > start_time))
 
 ---
 
@@ -1355,19 +1606,23 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Required Constraints**
 
-- N/A
+- Cross-table validation: Booking.expected_participants <= Space.capacity
 
 **Constraints Present In Schema**
 
-- N/A
+- Booking has FK space_code to Space but cannot compare attributes across tables
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- Not Enforceable
 
 **Issue**
 
-- Requires cross-table value comparison: Booking.expected_participants <= Space.capacity. Cannot be enforced with table-level constraints (requires trigger or application logic).
+- Requires trigger or application logic to compare expected_participants with Space.capacity
+
+**Recommended Correction**
+
+- Implement trigger on Booking INSERT/UPDATE that validates expected_participants <= Space.capacity
 
 ---
 
@@ -1379,23 +1634,27 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 **Can Be Enforced Using Table-Level Constraints?**
 
-- No
+- Yes
 
 **Required Constraints**
 
-- N/A (cross-domain CHECK constraint needed)
+- CHECK (decision <> 'rejected' OR rejection_reason IS NOT NULL)
 
 **Constraints Present In Schema**
 
-- N/A
+- Approval has both attributes; CHECK to be added in implementation
 
 **Status**
 
-- PASS (not enforceable; not counted as failure)
+- PASS
 
 **Issue**
 
-- Requires conditional NOT NULL: when Approval.decision = 'rejected', rejection_reason must be NOT NULL. Cross-domain CHECK not available at relational schema level. Can be enforced at SQL level with CHECK (decision != 'rejected' OR rejection_reason IS NOT NULL).
+- CHECK constraint not specified at logical schema level
+
+**Recommended Correction**
+
+- Add CHECK constraint in implementation: CHECK (decision <> 'rejected' OR rejection_reason IS NOT NULL)
 
 ---
 
@@ -1404,16 +1663,14 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 ## Critical Issues
 
 | ID | Category | Description | Recommended Correction |
-|----|----------|-------------|----------------------|
-| C-01 | Relationship Coverage | Approval.booking_id lacks UNIQUE constraint. Current composite PK (booking_id, approval_id) permits multiple approvals for the same booking, violating BR-09 (1:1 reviews relationship). | Add UNIQUE constraint on Approval.booking_id. |
-| C-02 | Relationship Coverage | Session.booking_id lacks UNIQUE constraint. Current composite PK (booking_id, session_id) permits multiple sessions for the same booking, violating BR-10 (1:1 tracks relationship). | Add UNIQUE constraint on Session.booking_id. |
+|---|---|---|---|
+| C-01 | — | No critical issues found | — |
 
 ## Minor Issues
 
 | ID | Category | Description | Recommended Correction |
-|----|----------|-------------|----------------------|
-| M-01 | Documentation | Inconsistency between FK Analysis (Section 5) and Schema Diagram (Section 8). FK Analysis lists column as user_id with role name in parentheses (e.g., user_id (requester_id)), while Schema Diagram uses role names directly as column names (e.g., requester_id). LD-01 states columns should be stored as user_id. | Align documentation: either update LD-01 to reflect role-name column approach used in the diagram, or rename diagram columns to match the FK Analysis. |
-| M-02 | Documentation | NOT NULL constraints are documented only for foreign keys in the Referential Integrity section. Other mandatory attributes (e.g., User.first_name, User.last_name, Space.space_name, Booking.requested_start_time, etc.) do not have explicit nullability documentation. | Document NOT NULL constraints for all mandatory attributes in the Integrity Constraint Analysis section. |
+|---|---|---|---|
+| M-01 | CHECK Constraints | BR-34, BR-35, BR-38, BR-39, BR-41 are enforceable via within-table CHECK constraints that are not specified in the logical schema | Add CHECK constraints in implementation stage |
 
 ---
 
@@ -1421,33 +1678,34 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 ## 1. ERD to Relational Schema Compatibility
 
-### PASS
+**PASS**
 
 ### Explanation
 
-- All 7 ERD entities (5 strong, 2 weak) are correctly mapped to relations.
-- All attributes from the ERD are present in the corresponding relations.
-- The composite attribute full_name is correctly decomposed into first_name and last_name.
-- All 10 relationships from the ERD are represented in the schema.
-- All mapping rules (Rules 1, 2, 4, 5, 8, 9, 11, 13) are correctly applied.
-- The M:N relationship equipped_with is correctly resolved via the Space_Facility associative relation.
-- All foreign keys reference valid primary keys with compatible domains.
-- No unnecessary relations exist.
-- Two minor issues exist: (1) UNIQUE constraints missing on Approval.booking_id and Session.booking_id to fully enforce 1:1 cardinality, and (2) a naming inconsistency between the FK Analysis and Schema Diagram.
+- All 7 ERD entities are correctly mapped to 7 relations (plus 1 associative relation Space_Facility for the M:N relationship).
+- All attributes from the ERD are present in the relational schema. The composite attribute full_name is correctly decomposed into first_name and last_name per Rule 8.
+- All 10 conceptual relationships are correctly represented through FK references (1:1 with UNIQUE; 1:N on N-side; M:N via associative relation).
+- All primary keys, candidate keys, and foreign keys are correctly identified and documented.
+- No special ER constructs (weak entities, multivalued attributes, n-ary relationships, recursive relationships, derived attributes) are present, and the handling of the composite attribute is correct.
+- The relational schema diagram (Mermaid erDiagram) accurately represents the schema with proper notation.
 
 ---
 
 ## 2. Business Rule Enforcement
 
-### PASS
+**ACCEPTABLE WITH CORRECTIONS**
 
 ### Explanation
 
-- 41 business rules were evaluated.
-- 12 rules are enforceable using table-level constraints: BR-01 through BR-05, BR-07, BR-08, BR-11, BR-12, BR-15, BR-16, BR-17.
-- 29 rules require enforcement mechanisms beyond table-level constraints (triggers, application logic, CHECK constraints at SQL level, scheduled jobs, etc.). These are not counted as failures per validation criteria.
-- All 12 enforceable rules are satisfied by the current schema with the exception of BR-09 and BR-10, which require additional UNIQUE constraints (documented as Critical Issues C-01 and C-02).
-- Enforceable rules satisfied: 12/12 (with corrections applied for C-01 and C-02).
+- **20 of 41 business rules** are enforceable using table-level database constraints (PK, FK, UNIQUE, NOT NULL, CHECK).
+  - All enforceable rules are supported by the current schema structure.
+  - 5 enforceable rules (BR-34, BR-35, BR-38, BR-39, BR-41) require within-table CHECK constraints to be added in the implementation stage.
+- **21 of 41 business rules** are not enforceable using table-level constraints alone. These rules require:
+  - Cross-table validation (e.g., checking User.role, Space.status, Booking.status from a different table): triggers or application logic
+  - Multi-row validation (e.g., overlapping time periods): triggers, exclusion constraints, or application logic
+  - Lifecycle state transitions: triggers or application logic
+  - Time-dependent automation (e.g., no-show detection): scheduled jobs or background processes
+- These non-enforceable rules are not counted as failures per the validation guidelines. They require additional mechanisms beyond table-level constraints, which is expected for this type of business logic.
 
 ---
 
@@ -1455,12 +1713,14 @@ None. All 11 foreign keys reference valid primary keys in their referenced relat
 
 ### Compatible Mapping
 
-- Yes
+- **Yes** — The relational schema is correctly and completely mapped from the ERD.
 
 ### All Enforceable Business Rules Satisfied
 
-- Yes (with corrections for C-01 and C-02)
+- **Yes** — All 20 business rules that can be enforced using table-level constraints are supported by the current schema design (with CHECK constraints to be added in implementation).
 
 ### Overall Result
 
-- ACCEPTABLE WITH CORRECTIONS
+- **ACCEPTABLE WITH CORRECTIONS**
+
+The relational schema correctly represents the ERD and satisfies all enforceable business rules. The 5 CHECK constraints (BR-34, BR-35, BR-38, BR-39, BR-41) must be added during the implementation stage. The 21 non-enforceable rules require triggers, application logic, or scheduled jobs, which is standard practice and not a design deficiency.

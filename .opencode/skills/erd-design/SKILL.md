@@ -1,5 +1,5 @@
 ---
-name: conceptual-design
+name: erd-design
 description: Transform business requirement analysis into a conceptual ERD using Chen's notation represented with Mermaid Flowchart
 compatibility: opencode
 ---

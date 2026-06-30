@@ -1,29 +1,75 @@
 ---
 name: design-validation
-description: validate whether the relational schema correctly represents the ERD, satisfies business rules, and uses appropriate keys, relationships, and constraints.
+description: Validate whether the relational schema correctly represents the ERD, satisfies business rules, and uses appropriate keys, relationships, and constraints.
 compatibility: opencode
 ---
 
-# Validate Compatibility Between ERD And Relational Schema
+# Design Validation Skill
 
-IMPORTANT: Do not read unrelated files unless explicitly requested.
+## Objective
 
-Read the ERD design from:
+Validate whether the relational schema:
 
+- Correctly represents the ERD.
+- Correctly applies ER-to-relational mapping rules.
+- Satisfies all enforceable business rules.
+- Uses appropriate keys, relationships, and integrity constraints.
+
+---
+
+## Required Input Files
+
+Read the following files:
+
+* `outputs/01-business-req-analysis-G7.md`
 * `outputs/02-erd-design-G7.md`
-
-Read the relational schema design from:
-
 * `outputs/03-logical-design-G7.md`
 
 Read the mapping rules from:
 
 * `.opencode/skills/logical-design/SKILL.md`
 
+If an existing analysis already exists, also read:
+
+* `outputs/04-design-validation-G7.md`
+
+Do not read unrelated files unless explicitly requested.
+
 ---
 
+## Prerequisites
 
-## 1. Entity Coverage
+The following file must exist:
+
+* `outputs/01-business-req-analysis-G7.md`
+* `outputs/02-erd-design-G7.md`
+* `outputs/03-logical-design-G7.md`
+
+If the file is missing:
+
+* Stop execution.
+* Report the missing prerequisite artifact.
+
+---
+
+## Discovery Process
+
+1. Read the business requirement analysis.
+2. Read the conceptual ERD.
+3. Read the logical design.
+4. Load the ER-to-relational mapping rules.
+5. Validate entity mapping.
+6. Validate relationship mapping.
+7. Validate special ER construct mapping.
+8. Validate integrity constraints.
+9. Validate business rule enforceability.
+10. Generate the validation report.
+
+---
+
+## Design Validation Rules
+
+### 1. Entity Coverage Validation
 
 Verify:
 
@@ -38,7 +84,7 @@ For each relation representing an entity, verify all attributes are present. Rec
 
 ---
 
-## 2. Relationship Coverage 
+### 2. Relationship Coverage Validation
 
 For each conceptual relationship, verify:
 
@@ -69,7 +115,6 @@ Verify all special ER constructs are correctly handled. The special constructs i
 * Weak entities
 * Recursive relationships
 * N-ary relationships
-* Subtypes and supertypes
 * Derived attributes
 
 Document correct and incorrect assumptions or design decisions.
@@ -83,10 +128,8 @@ Document the correct and incorrect uses of mapping rules.
 To verify whether business rules can be enforced using table-level database constraints, only the following constraint types are supported:
 
 * Domain constraints
-* PRIMARY KEY constraints
-* FOREIGN KEY constraints
-* Constraints on NULL values
-* Constraints on UNIQUE values
+* Constraints on NULL/NOT NULL values
+* Key constraints
 * Entity Integrity constraints
 * Referential Integrity constraints
 
@@ -103,7 +146,22 @@ For each attribute of each relation, verify:
 
 Record incorrect constraints.
 
-### 4.2 Entity Integrity Constraints
+## 4.2 Key Constraints
+
+For each relation, verify:
+
+* Candidate keys are correctly identified.
+* Each candidate key satisfies uniqueness requirements.
+* Primary key selection is appropriate among candidate keys.
+* No non-key attribute is incorrectly defined as a key.
+* Composite keys contain the correct set of attributes.
+* Unique constraints are correctly applied to alternate keys.
+
+Record key constraint violations.
+
+---
+
+### 4.3 Entity Integrity Constraints
 
 For each relation, verify:
 
@@ -114,7 +172,7 @@ For each relation, verify:
 
 Record violations of entity integrity.
 
-### 4.3 Referential Integrity Constraints
+### 4.4 Referential Integrity Constraints
 
 For each foreign key, verify:
 
@@ -126,7 +184,35 @@ Record violations of referential integrity.
 
 ---
 
-# Validate Business Rule Satisfaction
+## 4.5 NULL Constraints
+
+For each attribute, verify:
+
+* Mandatory attributes are defined as NOT NULL.
+* Optional attributes allow NULL values.
+* Primary key attributes cannot contain NULL values.
+* Foreign key attributes allow or restrict NULL values according to the relationship optionality.
+* NULL constraints do not conflict with other constraints (e.g., NOT NULL combined incorrectly with SET NULL referential actions).
+
+Record incorrect NULL constraints.
+
+---
+
+## 4.6 Constraint Consistency Validation
+
+For each relation schema, verify:
+
+* Constraints do not conflict with each other.
+* Primary keys, foreign keys, and unique constraints are defined consistently.
+* Foreign key constraints do not violate entity integrity of referenced relations.
+* Domain restrictions do not prevent valid relational operations.
+* All declared constraints correspond to the intended relational model.
+
+Record inconsistent or conflicting constraints.
+
+---
+
+# Business Rule Validation
 
 IMPORTANT: Do not read unrelated files unless explicitly requested.
 
@@ -142,47 +228,135 @@ Read the relational schema design from:
 
 ## Business Rule Enforcement Validation
 
-VERY IMPORTANT: validation is made on relational schema, not SQL. Hence:
+Read:
 
-* Cross-domain CHECK is not available
-* Single-domain CHECK between rows only allows UNIQUE, no comparison between many rows of the same attribute is allowed
+- `outputs/01-business-req-analysis-G7.md`
+- `outputs/03-logical-design-G7.md`
 
-For each business rule, determine whether it can be enforced using ONLY the following database constraint mechanisms, taking into account the limitation of CHECK above:
+Validation is performed on the relational schema, **not SQL**.
 
-* Domain constraints (data types, value ranges, enumerated values)
-* PRIMARY KEY constraints
-* FOREIGN KEY constraints
-* NOT NULL constraints
-* UNIQUE constraints
-* Entity Integrity constraints
-* Referential Integrity constraints
+Assume only the following mechanisms:
 
-Do NOT assume the use of:
+- Domain constraints
+- NULL/NOT NULL constraints
+- Key constraints
+- Entity Integrity constraints
+- Referential Integrity constraints
 
-* Triggers
-* Stored procedures
-* Assertions
-* Exclusion constraints
-* Check constraints involving other tables
-* Application logic
-* Scheduled jobs
-* Manual procedures
+Do **not** assume:
 
-Mark a Rule as NOT Enforceable If It Requires:
+- Triggers
+- Stored procedures
+- Assertions
+- Exclusion constraints
+- Cross-table CHECK constraints
+- Application logic
+- Scheduled jobs
+- Manual procedures
 
-* CHECK that can be achieved in SQL but not on relational schema
-* Cross-domain CHECK or CHECK outside
-* Validation involving values from another table beyond a foreign key relationship
-* Validation involving multiple rows in the same table
-* Detection of overlapping time periods
-* State transition or workflow logic
-* Historical record preservation
-* Automatic status changes based on time
-* Conditional existence of related records
-* User role or permission checks
-* Any logic requiring knowledge of previous database states
+Mark a rule as **Not Enforceable** if it requires:
 
+- CHECK constraints beyond relational schema capability.
+- Cross-domain CHECK constraints.
+- Validation involving another table beyond foreign keys.
+- Validation involving multiple rows.
+- Detection of overlapping time periods.
+- Workflow or state transition logic.
+- Historical record preservation.
+- Automatic time-based updates.
+- Conditional existence of related records.
+- User role or permission validation.
+- Knowledge of previous database states.
 
+# Execution process
+
+### Step 1 — Validate Entity Coverage
+
+Perform Entity Coverage Validation.
+
+Record:
+
+- PASS / FAIL
+- Evidence
+- Recommended corrections
+
+---
+
+### Step 2 — Validate Relationship Coverage
+
+Perform Relationship Coverage Validation.
+
+Record:
+
+- PASS / FAIL
+- Evidence
+- Recommended corrections
+
+---
+
+### Step 3 — Validate Special Constructs
+
+Perform Special Construct Validation.
+
+Record:
+
+- PASS / FAIL
+- Evidence
+- Recommended corrections
+
+---
+
+### Step 4 — Validate Constraints
+
+Perform:
+
+- Domain Constraint Validation
+- Entity Integrity Validation
+- Referential Integrity Validation
+
+Record all violations.
+
+---
+
+### Step 5 — Validate Business Rule Satisfaction
+
+For each business rule:
+
+1. Determine whether it is enforceable.
+2. Identify supporting constraint types.
+3. Explain the reasoning.
+4. If not enforceable, identify the required mechanism.
+5. Do not mark a rule as enforceable merely because the schema can store the data.
+
+---
+
+### Step 6 — Generate Validation Report
+
+Produce:
+
+#### Summary
+
+- Total issues found
+- Critical issues
+- Minor issues
+
+#### Detailed Findings
+
+For every validation criterion include:
+
+- PASS or FAIL
+- Explanation
+- Evidence from the ERD and relational schema
+- Recommended correction
+
+#### Final Verdict
+
+State whether:
+
+1. The relational schema is correctly mapped from the ERD.
+2. The relational schema satisfies all enforceable business rules using table-level database constraints.
+
+---
 
 ## Output Requirements
 
@@ -198,35 +372,28 @@ For each business rule:
 
 ---
 
-# Required Output
+## Important rules
 
-## Summary
+### Scope Restrictions Rules
 
-Provide:
+This stage is not responsible for:
 
-* Total issues found.
-* Critical issues.
-* Minor issues.
+- SQL implementation
+- Sample data validation
+- Query validation
+- Performance optimization
+- Other implementation-stage activities
 
----
-
-## Detailed Findings
-
-For each validation criterion:
-
-* PASS or FAIL
-* Explanation
-* Evidence from ERD and schema
-* Recommended correction
+Those activities belong to later stages.
 
 ---
 
-## Final Verdict
+### Validation Consistency Rule
 
-State whether:
+The Business Requirement Analysis and Conceptual ERD remain the authoritative sources.
 
-1. Relational schema is compatibly mapped from the ERD
-2. Relational schema satisfied all business rules that an be enforced using table-level database constraints
+Do not introduce new entities, relationships, or business rules during validation.
+
 ---
 
 ## Output Specification
@@ -240,3 +407,36 @@ The document must follow the template. Read the template from:
 `.opencode/skills/design-validation/design-validation-template.md`
 
 Do not omit any required section.
+
+## Validation checklist
+
+
+Before saving:
+
+- Every entity has been validated.
+- Every relationship has been validated.
+- Every special ER construct has been validated.
+- Every applicable constraint has been validated.
+- Every enforceable business rule has been evaluated.
+- Every finding includes supporting evidence.
+- Every finding includes PASS or FAIL.
+- The final verdict is provided.
+
+---
+
+## Error handling
+
+If any required input file is missing:
+
+- Stop execution.
+- Report the missing prerequisite artifact.
+
+If inconsistencies are found:
+
+- Record the inconsistency.
+- Recommend the appropriate correction.
+
+If a business rule cannot be enforced using table-level constraints:
+
+- Mark it as **Not Enforceable**.
+- Recommend the additional mechanism required.

@@ -20,10 +20,10 @@ The output will be used to insert realistic sample data into the database instan
 ## Required Input Files
 
 Read the following file:
-* `outputs/05-db-implementation-G7.sql` (The database implementation SQL file)
+* outputs/05-db-implementation-G7.sql (The database implementation SQL file)
 
 If a previous implementation of the SQL seed script already exists, also read:
-* `outputs/06-sample-data-G7.sql`
+* outputs/06-sample-data-G7.sql
 
 Do not read any other unrelated files unless explicitly requested.
 
@@ -32,7 +32,7 @@ Do not read any other unrelated files unless explicitly requested.
 ## Prerequisites
 
 The following file must exist:
-* `outputs/05-db-implementation-G7.sql`
+* outputs/05-db-implementation-G7.sql
 
 If the file is missing:
 * Stop execution.
@@ -40,287 +40,212 @@ If the file is missing:
 
 ---
 
-## Implementation Process
+# Data Generation Process
 
-Follow these steps strictly in order. Do not skip or merge steps.
+## Step 1: Understand the Database Schema
 
-## Step 1: Reconstruct and Understand the Database Context
+- Read the file outputs/05-db-implementation-G7.sql
+- Identify:
+  - All tables
+  - Attributes for each table
+  - Primary keys, foreign keys, and candidate keys
+  - Relationships (1-1, 1-N, N-M)
+  - Constraints and business rules
 
-Before generating any sample data, fully understand the existing database design produced in previous steps. This includes:
-
-* Identifying all **tables** in the schema
-* Listing all **attributes** of each table
-* Determining **primary keys**, **foreign keys**, and **candidate keys**
-* Understanding **relationships** between tables (1–1, 1–N, N–M)
-* Reviewing all **business rules and constraints**
-
----
-
-## Step 2: Determine the Correct Data Insertion Order
-
-Because of foreign key constraints, data must be inserted in a specific order to avoid violations. The correct order is determined by dependency relationships:
-
-1. **Independent tables** (no foreign keys)
-2. **Parent tables** (referenced by others)
-3. **Child tables** (contain foreign keys)
-4. **Bridge tables** (for many-to-many relationships)
-
-For example, if `Bookings` references `Users`, then `Users` must be populated before `Bookings`.
+If the file is missing:
+- Stop execution
+- Report the missing prerequisite
 
 ---
 
-## Step 3: Design Realistic Data Generation Strategies
+## Step 2: Determine Insertion Order
 
-The generated data should simulate real-world scenarios rather than using purely uniform random values. This involves:
+Insert data based on dependency:
 
-* Using **meaningful value sets** (e.g., names, emails, categories)
-* Generating **dates within realistic ranges**
-* Applying **weighted distributions** (e.g., most users are active, fewer are inactive)
-* Ensuring values follow **domain logic** (e.g., expected_participants are positive and within expected ranges)
+1. Independent tables (no foreign keys)
+2. Parent tables (referenced by others)
+3. Child tables (contain foreign keys)
+4. Bridge tables (many-to-many relationships)
 
-For example:
-
-* Status fields might follow a distribution like 70% “Active”, 20% “Pending”, 10% “Cancelled”
-* Dates should reflect plausible timelines (e.g., booking dates within the past year)
+This prevents foreign key violations.
 
 ---
 
-## Step 3.5: Enforce Domain-Specific Data Quality Rules
+## Step 3: Design Realistic Data
 
-### 1. Name Generation Rules
+Generate data that reflects real-world usage:
 
-Use large and diverse name pools.
-
-Requirements:
-* At least 40–60 first names and 20–30 last names must be defined
-* Names must be combined randomly to create variety
-* Avoid small fixed lists that cause repetition
-* Shuffle all names at the end to ensure randomness
-
-Do NOT generate names using pure randomness (e.g., random strings).
-
-### 2. Department Constraints (Domain-Specific)
-
-All departments MUST be relevant to a Computer Science university.
-
-Allowed examples include:
-* Computer Science
-* Software Engineering
-* Data Science
-* Artificial Intelligence
-* Cybersecurity
-* Information Systems
-* Computer Networks
-* Human-Computer Interaction
-
-Generic departments (e.g., HR, Sales, Marketing) are NOT allowed.
-
-### 3. Building Constraints
-
-Building values MUST be restricted to a fixed set:
-
-Allowed values: A, B, C, D, E, F
-
-Do NOT generate full building names or random strings.
-
-### 4. Capacity Rules
-
-Capacity values must follow realistic constraints:
-
-* Must be divisible by 5
-* Must typically fall within the range 40–50, and 200-300 with auditoriums
-* Occasional variation outside this range is allowed but should be rare 
-
-Invalid examples:
-* 37, 83, 112
-
-Valid examples:
-* 40, 45, 50
-
-### 5. Booking Status Distribution
-
-Booking statuses MUST follow a realistic distribution:
-
-* Approved: ~60–70%
-* Completed: ~20–30%
-* Rejected: at least 5–10%
-
-A dataset with zero rejected bookings is NOT acceptable.
-
-### 6. Rejected Booking Requirements
-
-Rejected bookings MUST include a valid rejection reason.
-
-A rejection reason pool must be defined, including examples such as:
-* Scheduling conflict
-* Capacity exceeded
-* Duplicate request
-* Invalid booking details
-* Maintenance issue
-
-Rules:
-* RejectReason MUST be NULL for non-rejected bookings
-* RejectReason MUST be NON-NULL for rejected bookings
-
-### 7. Maintenance records must reflect realistic outcomes
-
-Maintenance records must reflect realistic outcomes.
-
-Requirements:
-* A majority of maintenance records should be marked as "Completed"
-* A diverse set of result notes must be used (at least 8–10 variations)
-
-Examples:
-* Issue resolved successfully
-* Equipment replaced
-* Routine maintenance completed
-* System upgraded
-* No issues found
-
-ResultNote:
-* MUST be present for completed records
-* MUST be NULL for incomplete records
+- Use meaningful values (names, emails, categories)
+- Generate realistic dates (for example, within the past year)
+- Apply weighted distributions (for example, more active than inactive)
+- Ensure values follow domain logic (for example, participants must be positive)
 
 ---
 
-## Step 4: Translate Business Rules into Data Constraints
+## Step 4: Enforce Domain-Specific Rules
 
-All generated data must strictly comply with the business rules defined earlier. This requires translating abstract rules into concrete logic during insertion.
+### Name Generation
+- Use at least 40 to 60 first names and 20 to 30 last names
+- Combine names randomly
+- Shuffle final results
+- Do not use random strings
 
-Examples:
+### Departments
+Only allow computer science related departments:
+- Computer Science
+- Software Engineering
+- Data Science
+- Artificial Intelligence
+- Cybersecurity
+- Information Systems
+- Computer Networks
+- Human-Computer Interaction
 
-* Only pending bookings can be **approved**
-* A completed booking must have an **assigned staff member**
-* Certain fields must be **non-null under specific conditions**
+Do not use generic departments like HR or Marketing.
 
-This may involve:
+### Buildings
+- Allowed values: A, B, C, D, E, F only
 
-* Conditional logic during insertion
-* Filtering invalid combinations
-* Ensuring dependencies between attributes are respected
+### Capacity
+- Must be divisible by 5
+- Usually between 40 and 50
+- Auditoriums between 200 and 300
+- Rare variation allowed
+
+### Booking Status Distribution
+- Approved: about 60 to 70 percent
+- Completed: about 20 to 30 percent
+- Rejected: at least 5 to 10 percent
+
+### Rejected Bookings
+- Must include a rejection reason
+- Use a predefined reason list such as:
+  - Scheduling conflict
+  - Capacity exceeded
+  - Duplicate request
+  - Invalid booking details
+  - Maintenance issue
+- Rejection reason must be NULL for non-rejected bookings
+- Rejection reason must NOT be NULL for rejected bookings
+
+### Maintenance Records
+- Most records should be marked as Completed
+- Use at least 8 to 10 different result notes
+- Result note must:
+  - Be present for completed records
+  - Be NULL for incomplete records
 
 ---
 
-## Step 5: Apply SQL Server Randomization Techniques
+## Step 5: Enforce Business Rules
 
-To efficiently generate varied data, SQL Server’s built-in functions should be used:
+Translate business rules into data logic:
 
-* `NEWID()` → generates random unique identifiers
-* `CHECKSUM(NEWID())` → produces pseudo-random integers
-* `RAND()` → generates random floating-point numbers
-* `DATEADD()` → creates randomized date values
-* `ABS()` and modulo (%) → control numeric ranges
+- Only pending bookings can be approved
+- Completed bookings must have valid session data
+- Ensure correct NULL and NOT NULL conditions
+- Avoid invalid combinations of data
+
+Use conditional logic and filtering where necessary.
 
 ---
 
-## Step 6: Use Set-Based Operations for Bulk Data Generation
+## Step 6: Use SQL Server Randomization
 
-You MUST generate large datasets using set-based operations.
+Use built-in functions:
 
-Requirements:
+- NEWID() for randomness
+- CHECKSUM(NEWID()) for integers
+- RAND() for floating-point values
+- DATEADD() for generating dates
+- ABS() and modulo (%) for controlling ranges
 
-* Generate **hundreds to thousands of rows per main table**
-* Avoid row-by-row inserts
-* Use:
-  - `TOP (1000)` or more
-  - `CROSS JOIN` to scale row counts
-  - system tables (`sys.objects`) as row sources
+---
 
-Example pattern:
+## Step 7: Use Set-Based Data Generation
+
+- Do not use row-by-row inserts
+- Use:
+  - TOP (1000) or more
+  - CROSS JOIN
+  - system tables such as sys.objects
+
+Example:
 
 INSERT INTO Users (...)
-SELECT TOP (1000)
-    ...
+SELECT TOP (1000) ...
 FROM sys.objects a
 CROSS JOIN sys.objects b;
 
 ---
 
-## Step 6.5: Enforce Minimum Data Volume
+## Step 8: Enforce Data Volume
 
-The dataset must be large enough to support realistic testing.
+Minimum required sizes:
 
-Requirements:
+- Users: 500 to 1000 rows
+- Spaces: 50 to 100 rows
+- Facilities: 10 to 20 rows
+- Bookings: 1000 to 3000 rows
+- Sessions: 1000 to 3000 rows
+- Approvals: 500 to 2000 rows
+- Maintenance: 500 to 1000 rows
+- Bridge tables: scale with relationships
 
-* Each core entity table must contain **at least 500–1000 rows**
-* Smaller lookup/reference tables may contain fewer rows where appropriate
-* Relationship tables must scale proportionally (e.g., bookings > users)
-
-Guidelines:
-
-* Use `TOP (1000)` or higher in set-based generation queries
-* Use `CROSS JOIN` to multiply row counts when necessary
-* Avoid small demo datasets (e.g., 10–50 rows)
-
----
-
-## Step 7: Maintain Referential Integrity Across Relationships
-
-When inserting data into tables with foreign keys:
-
-* Ensure all referenced values **exist in parent tables**
-* Randomly assign valid foreign key values from existing records
-* Preserve realistic relationship patterns (e.g., some users have many bookings, others have few)
-
-This step guarantees that all relationships remain valid and meaningful within the dataset.
+Datasets with fewer than 100 rows are not acceptable.
 
 ---
 
-## Step 8: Include Edge Cases and Exceptional Scenarios
+## Step 9: Maintain Referential Integrity
 
-In addition to normal data, the dataset should include edge cases to test system robustness:
+- Ensure all foreign key values exist in parent tables
+- Assign foreign keys from valid existing records
+- Maintain realistic relationships:
+  - Some users have many bookings
+  - Some users have few bookings
 
-* **NULL values** (where allowed)
-* **Boundary values** (e.g., minimum and maximum limits)
-* **Rare conditions** (e.g., cancelled bookings, inactive users)
-* **Constraint edge cases** to verify validation logic
-
----
-
-## Step 9: Compile a Complete and Executable SQL Script
-
-Finally, all data generation logic should be combined into a single, clean SQL script that:
-
-* Inserts data in the correct order
-* Uses efficient bulk operations
-* Respects all constraints and business rules
-* Can generate large datasets (thousands of rows)
-
-Optional enhancements include:
-
-* Wrapping operations in **transactions**
-* Temporarily disabling and re-enabling constraints for performance (if appropriate)
-* Adding comments for clarity and maintainability
-
-The final script should be fully executable and capable of populating the database reliably for testing and evaluation purposes.
+No orphan records are allowed.
 
 ---
 
-**Important Rules:**
+## Step 10: Include Edge Cases
 
-* Always follow the steps in order
-* Never skip validation or business rules
-* Prioritize correctness before scale
-* Ensure the final script is clean, efficient, and reusable
-* The dataset must contain **at least 500 rows for each main transactional table**
-* Solutions generating fewer than 100 rows per table are NOT acceptable
+Include:
+
+- NULL values where allowed
+- Boundary values (minimum and maximum limits)
+- Rare conditions such as:
+  - cancelled bookings
+  - inactive users
+- Constraint edge cases
 
 ---
 
-## Data Volume Targets
+## Step 11: Produce Final SQL Script
 
-The generated dataset should approximately follow:
+The final script must:
 
-* Users: 500–1000 rows
-* Spaces: 50-100 rows
-* Facilities: 10-20 rows
-* Bookings: 1000–3000 rows
-* Sessions: 1000–3000 rows
-* Approvals: 500-2000 rows
-* Maintenance: 500-1000 rows
-* Bridge tables: proportional to relationships
+- Follow the correct insertion order
+- Use efficient set-based operations
+- Respect all constraints and business rules
+- Generate large datasets
 
-These targets must be met unless constrained by business logic.
+Optional:
+- Wrap in transactions
+- Temporarily disable and re-enable constraints
+- Add comments for clarity
+
+The script must be fully executable and reusable.
+
+---
+
+## Final Rules
+
+- Follow all steps in order
+- Do not skip validation or business rules
+- Prioritize correctness before scale
+- Ensure each main table has at least 500 rows
+- Ensure data is realistic and consistent
 
 ---
 
@@ -328,7 +253,7 @@ These targets must be met unless constrained by business logic.
 
 Create or update:
 
-`outputs/06-sample-data-G7.sql`
+outputs/06-sample-data-G7.sql
 
 Do not omit any required section.
 
@@ -336,7 +261,7 @@ Do not omit any required section.
 
 ## Error Handling
 
-If `outputs/05-db-implementation-G7.sql` do not exist:
+If outputs/05-db-implementation-G7.sql do not exist:
 
 * Stop execution.
 * Report the missing file.

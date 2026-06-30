@@ -26,7 +26,7 @@ Read the following file:
 * `outputs/05-db-implementation-G7.sql` (The database implementation SQL file)
 
 If a previous query design already exists, also read:
-* `outputs/07-query-design-G7.md`
+* `outputs/07-query-design-G7.sql`
 
 Do not read any other unrelated files unless explicitly requested.
 
@@ -164,7 +164,7 @@ The number of queries generated must be **20**, in which there have to be more t
 
 Create or update:
 
-`outputs/07-query-design-G7.md`
+`outputs/07-query-design-G7.sql`
 
 Do not omit any required section.
 

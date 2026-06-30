@@ -129,19 +129,13 @@
 |------------|------------|------------|
 | | | |
 
-#### Recursive Relationships
-
-| Construct | Verification | Issue |
-|------------|------------|------------|
-| | | |
-
 #### N-ary Relationships
 
 | Construct | Verification | Issue |
 |------------|------------|------------|
 | | | |
 
-#### Subtypes and Supertypes
+#### Recursive Relationships
 
 | Construct | Verification | Issue |
 |------------|------------|------------|
@@ -176,17 +170,17 @@
 
 ---
 
-### 4.1 Domain Constraints
+## 4.1 Domain Constraints
 
-#### Findings
+### Findings
 
-| Relation | Attribute | Constraint | Status | Issue |
-|------------|------------|------------|------------|------------|
-| | | | PASS / FAIL | |
+| Relation | Attribute | Constraint Type | Expected Constraint | Status | Issue |
+|------------|------------|------------|------------|------------|------------|
+| | | Domain / NULL / UNIQUE / CHECK / DEFAULT | | PASS / FAIL | |
 
-#### Domain Constraint Violations
+### Domain Constraint Violations
 
-| Relation | Attribute | Missing / Incorrect Constraint | Recommended Correction |
+| Relation | Attribute | Violation | Recommended Correction |
 |------------|------------|------------|------------|
 | | | | |
 
@@ -197,15 +191,15 @@
 
 ---
 
-### 4.2 Entity Integrity Constraints
+## 4.2 Key Constraints
 
-#### Findings
+### Findings
 
-| Relation | Validation Item | Status | Issue |
-|------------|------------|------------|------------|
-| | | PASS / FAIL | |
+| Relation | Key Type | Attributes | Validation Item | Status | Issue |
+|------------|------------|------------|------------|------------|------------|
+| | Primary Key / Candidate Key / UNIQUE | | | PASS / FAIL | |
 
-#### Violations
+### Key Constraint Violations
 
 | Relation | Violation | Recommended Correction |
 |------------|------------|------------|
@@ -218,17 +212,92 @@
 
 ---
 
-### 4.3 Referential Integrity Constraints
+## 4.3 Entity Integrity Constraints
 
-#### Findings
+### Findings
 
-| Foreign Key | Validation Item | Status | Issue |
+| Relation | Validation Item | Status | Issue |
 |------------|------------|------------|------------|
-| | | PASS / FAIL | |
+| | Primary key attributes are NOT NULL | PASS / FAIL | |
+| | Primary key attributes are UNIQUE | PASS / FAIL | |
+| | Composite primary key components do not allow NULL | PASS / FAIL | |
+| | Primary key is clearly identified | PASS / FAIL | |
 
-#### Violations
+### Entity Integrity Violations
+
+| Relation | Violation | Recommended Correction |
+|------------|------------|------------|
+| | | |
+
+### Evidence
+
+- Schema:
+  - ...
+
+---
+
+## 4.4 Referential Integrity Constraints
+
+### Findings
+
+| Foreign Key | Referenced Relation | Validation Item | Status | Issue |
+|------------|------------|------------|------------|------------|
+| | | Referenced key exists | PASS / FAIL | |
+| | | Referenced attribute is a key | PASS / FAIL | |
+| | | Compatible domain and data type | PASS / FAIL | |
+| | | Foreign key definition is valid | PASS / FAIL | |
+
+### Referential Integrity Violations
 
 | Foreign Key | Violation | Recommended Correction |
+|------------|------------|------------|
+| | | |
+
+### Evidence
+
+- Schema:
+  - ...
+
+---
+
+## 4.5 NULL Constraint Validation
+
+### Findings
+
+| Relation | Attribute | Validation Item | Status | Issue |
+|------------|------------|------------|------------|------------|
+| | | NULL / NOT NULL definition is correct | PASS / FAIL | |
+| | | NULL constraint is consistent with key constraints | PASS / FAIL | |
+| | | NULL constraint is consistent with foreign key behavior | PASS / FAIL | |
+
+### NULL Constraint Violations
+
+| Relation | Attribute | Violation | Recommended Correction |
+|------------|------------|------------|------------|
+| | | | |
+
+### Evidence
+
+- Schema:
+  - ...
+
+---
+
+## 4.6 Constraint Consistency Validation
+
+### Findings
+
+| Relation | Validation Item | Status | Issue |
+|------------|------------|------------|------------|
+| | Constraints do not conflict with each other | PASS / FAIL | |
+| | Primary key, UNIQUE, and foreign key constraints are consistent | PASS / FAIL | |
+| | Foreign keys reference valid keys without violating entity integrity | PASS / FAIL | |
+| | Domain constraints are consistent with attribute definitions | PASS / FAIL | |
+| | Composite key and foreign key definitions are consistent | PASS / FAIL | |
+
+### Constraint Consistency Violations
+
+| Relation | Violation | Recommended Correction |
 |------------|------------|------------|
 | | | |
 
