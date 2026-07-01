@@ -11,7 +11,7 @@
 ### Overall Assessment
 
 - ERD ↔ Relational Schema Compatibility: PASS / FAIL
-- Business Rule Enforcement via Table-Level Constraints: PASS / FAIL
+- Business Rule Enforcement via Logical-Schema-Level Constraints: PASS / FAIL
 
 ---
 
@@ -312,7 +312,7 @@
 
 ## Status: PASS / FAIL
 
-For each business rule, verify whether it can be enforced using table-level database constraints only.
+For each business rule, verify whether it can be enforced using logical-schema-level constraints only.
 
 ### Rule Validation Results
 
@@ -322,7 +322,7 @@ For each business rule, verify whether it can be enforced using table-level data
 
 > ...
 
-**Can Be Enforced Using Table-Level Constraints?**
+**Can Be Enforced Using Logical-Schema-Level Constraints?**
 
 - Yes / No
 
@@ -354,7 +354,7 @@ For each business rule, verify whether it can be enforced using table-level data
 
 > ...
 
-**Can Be Enforced Using Table-Level Constraints?**
+**Can Be Enforced Using Logical-Schema-Level Constraints?**
 
 - Yes / No
 

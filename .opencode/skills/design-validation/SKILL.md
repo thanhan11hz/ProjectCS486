@@ -125,7 +125,7 @@ Document the correct and incorrect uses of mapping rules.
 ## 4. Constraint Validation
 
 
-To verify whether business rules can be enforced using table-level database constraints, only the following constraint types are supported:
+To verify whether business rules can be enforced using logical-schema-level database constraints, only the following constraint types are supported:
 
 * Domain constraints
 * Constraints on NULL/NOT NULL values
@@ -133,7 +133,7 @@ To verify whether business rules can be enforced using table-level database cons
 * Entity Integrity constraints
 * Referential Integrity constraints
 
-Note: do not count violations of business rules that cannot be enforced using table-level database constraints as failures.
+Note: do not count violations of business rules that cannot be enforced using logical-schema-level database constraints as failures.
 
 ### 4.1 Domain Constraints
 
@@ -224,20 +224,12 @@ Read the relational schema design from:
 
 * `outputs/03-logical-design-G7.md`
 
----
-
-## Business Rule Enforcement Validation
-
-Read:
-
-- `outputs/01-business-req-analysis-G7.md`
-- `outputs/03-logical-design-G7.md`
 
 Validation is performed on the relational schema, **not SQL**.
 
 Assume only the following mechanisms:
 
-- Domain constraints
+- Attribute-based CHECK constraints
 - NULL/NOT NULL constraints
 - Key constraints
 - Entity Integrity constraints
@@ -256,7 +248,7 @@ Do **not** assume:
 
 Mark a rule as **Not Enforceable** if it requires:
 
-- CHECK constraints beyond relational schema capability.
+- Tuple-based CHECK constraints.
 - Cross-domain CHECK constraints.
 - Validation involving another table beyond foreign keys.
 - Validation involving multiple rows.
@@ -354,7 +346,7 @@ For every validation criterion include:
 State whether:
 
 1. The relational schema is correctly mapped from the ERD.
-2. The relational schema satisfies all enforceable business rules using table-level database constraints.
+2. The relational schema satisfies all enforceable business rules using logical-schema-level database constraints.
 
 ---
 
@@ -368,7 +360,6 @@ For each business rule:
 2. Identify the specific constraint types that support the rule.
 3. Explain why the rule is enforceable or not enforceable.
 4. If not enforceable, describe what additional mechanism would be required (e.g., trigger, application logic, workflow logic).
-5. Do not mark a rule as enforceable merely because the schema contains tables capable of storing the required data.
 
 ---
 
@@ -436,7 +427,7 @@ If inconsistencies are found:
 - Record the inconsistency.
 - Recommend the appropriate correction.
 
-If a business rule cannot be enforced using table-level constraints:
+If a business rule cannot be enforced using logical-schema-level constraints:
 
 - Mark it as **Not Enforceable**.
 - Recommend the additional mechanism required.
