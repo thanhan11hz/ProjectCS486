@@ -155,21 +155,6 @@ This stage is not responsible for:
 * Database performance optimizations (Do NOT generate `CREATE INDEX`, Views, or Triggers).
 * Table normalization (Assumed completed in previous stages).
 
-### Database Idempotency Rule
-The output script must be completely idempotent. Re-running the script multiple times on an instance must execute seamlessly without throwing primary key conflicts or duplicate schema errors.
-To do this, at the start of the script, change the database context to `master` and drop the existing database if it exists like this SQL Server syntax:
-```sql
-USE [master];
-GO
-
-IF EXISTS (SELECT name FROM sys.databases WHERE name = <'database_name'>)
-BEGIN
-    ALTER DATABASE <'database_name'> SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    
-    DROP DATABASE <'database_name'>;
-END
-GO
-```
 
 
 ### Example Usage Rules
