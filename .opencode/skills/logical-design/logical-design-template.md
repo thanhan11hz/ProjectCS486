@@ -212,12 +212,12 @@ erDiagram
     RELATION_A ||--o{ RELATION_B : references
 
     RELATION_A {
-        string id PK
+        int id PK
         string attribute1
     }
 
     RELATION_B {
-        string id PK
+        int id PK
         string relation_a_id FK
         string attribute2
     }

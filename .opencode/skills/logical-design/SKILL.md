@@ -229,20 +229,6 @@ If retained:
 
 ---
 
-### Rule 14 — Specialization / Generalization Mapping
-
-If subtypes exist:
-
-Select the simplest valid mapping strategy:
-
-* Supertype relation + subtype relations
-* Single relation inheritance
-* Subtype-only relations
-
-Document the chosen strategy and rationale.
-
----
-
 ## Execution process
 
 Perform the following steps in order.
@@ -317,7 +303,6 @@ Evaluate all special ER constructs:
 * Weak entities
 * Recursive relationships
 * N-ary relationships
-* Subtypes and supertypes
 * Derived attributes
 
 Apply the corresponding mapping rules.

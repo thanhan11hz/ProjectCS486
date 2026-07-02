@@ -2,15 +2,27 @@
 
 ## 1. Entity Definitions
 
-| Entity | Classification | Description |
-| ------ | -------------- | ----------- |
-| User | Strong | A person who interacts with the system. Has independent identity via user_id. Existence does not depend on any other entity. |
-| Space | Strong | A bookable physical location on campus. Has independent identity via space_code. Existence does not depend on any other entity. |
-| Facility | Strong | Equipment or amenities available in a space. Has independent identity via facility_id. Existence does not depend on any other entity. |
-| Booking | Strong | A request submitted by a user to reserve a space. Has independent identity via booking_id. Existence does not depend on any other entity. |
-| Approval | Weak | A decision made by facility staff or manager to approve/reject a booking. Existence depends on a Booking. Cannot exist without a corresponding booking. |
-| Session | Weak | The actual usage of a space corresponding to a booking. Existence depends on an approved Booking. Cannot exist without a corresponding booking. |
-| Maintenance Record | Strong | A record of a maintenance issue reported for a space. Has independent identity via maintenance_id. Existence does not depend on any other entity. |
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| User | Strong | A person who interacts with the system. Users have university accounts and can act in various roles (student, lecturer, teaching assistant, facility staff, department administrator, facility manager). |
+| Space | Strong | A bookable physical location on campus managed by the School of Computer Science. |
+| Facility | Strong | Equipment or amenities available in a space (projector, whiteboard, microphone, computer, livestreaming equipment, air conditioner, etc.). |
+| Booking | Strong | A request submitted by a user to reserve a space for a specific time period and purpose. |
+| Approval | Strong | A decision made by facility staff or manager to approve or reject a booking request. Existence depends on Booking. |
+| Session | Strong | The actual usage of a space corresponding to a booking. Captures what happened in reality versus what was requested. Existence depends on Booking. |
+| Maintenance Record | Strong | A record of a maintenance issue reported for a space, tracking the problem through resolution. |
+
+### Classification Justification
+
+| Entity | Classification | Justification |
+| ------ | -------------- | ------------- |
+| User | Strong | Has own identity (user_id). Existence does not depend on another entity. Can exist independently. |
+| Space | Strong | Has own identity (space_code). Existence does not depend on another entity. Can exist independently. |
+| Facility | Strong | Has own identity (facility_id). Existence does not depend on another entity. Can exist independently. |
+| Booking | Strong | Has own identity (booking_id). Existence does not depend on another entity. Can exist independently. |
+| Approval | Strong | Has own identity (approval_id). Can be uniquely identified without another entity. |
+| Session | Strong | Has own identity (session_id). Can be uniquely identified without another entity. |
+| Maintenance Record | Strong | Has own identity (maintenance_id). Existence does not depend on another entity. Can exist independently. |
 
 ---
 
@@ -18,114 +30,141 @@
 
 ### Entity: User
 
-| Attribute | Classification | Description | Notes |
-| --------- | -------------- | ----------- | ----- |
-| user_id | Key | Unique identifier for each user | Uniquely identifies each user occurrence |
-| full_name | Composite | User's full name | Can be decomposed into first_name, last_name |
-| email | Simple | University email address | Atomic, single value |
-| phone_number | Simple | Contact phone number | Atomic, single value per entity occurrence |
-| role | Simple | User role enumeration | Atomic; AM-02 notes possible multivalued if users can hold multiple roles |
-| department | Simple | Organizational affiliation | Atomic |
-| account_status | Simple | Account status enumeration | Atomic: active or suspended |
-
-### Entity: Space
-
-| Attribute | Classification | Description | Notes |
-| --------- | -------------- | ----------- | ----- |
-| space_code | Key | Unique identifier for the space | Uniquely identifies each space occurrence |
-| space_name | Simple | Human-readable name for the space | Atomic |
-| space_type | Simple | Space type enumeration | Atomic: auditorium, classroom, etc. |
-| building | Simple | Building name or code | Atomic |
-| floor | Simple | Floor number within the building | Atomic |
-| room_number | Simple | Room identifier within the building | Atomic |
-| capacity | Simple | Maximum number of occupants | Atomic, numeric |
-| status | Simple | Space status enumeration | Atomic: available, in_use, under_maintenance, etc. |
-| usage_policy | Simple | Rules governing space usage | Atomic |
-
-### Entity: Facility
-
-| Attribute | Classification | Description | Notes |
-| --------- | -------------- | ----------- | ----- |
-| facility_id | Key | Unique identifier for each facility type | Uniquely identifies each facility occurrence |
-| facility_name | Simple | Descriptive name of the facility | Atomic |
-| description | Simple | Optional details about the facility | Atomic |
-
-### Entity: Booking
-
-| Attribute | Classification | Description | Notes |
-| --------- | -------------- | ----------- | ----- |
-| booking_id | Key | Unique identifier for the booking request | Uniquely identifies each booking occurrence |
-| requested_start_time | Simple | When the requester wants the booking to begin | Atomic, datetime |
-| requested_end_time | Simple | When the requester wants the booking to end | Atomic, datetime |
-| purpose | Simple | Purpose enumeration | Atomic: lecture, examination, seminar, etc. |
-| expected_participants | Simple | Number of people expected to attend | Atomic, numeric |
-| status | Simple | Booking status enumeration | Atomic: pending, approved, rejected, cancelled, checked_in, completed, no_show |
-
-### Entity: Approval
-
-| Attribute | Classification | Description | Notes |
-| --------- | -------------- | ----------- | ----- |
-| approval_id | Key | Unique identifier for the approval decision | Uniquely identifies each approval occurrence |
-| decision | Simple | Decision enumeration | Atomic: approved or rejected |
-| decision_time | Simple | When the decision was made | Atomic, datetime |
-| decision_note | Simple | Notes accompanying the decision | Atomic |
-| rejection_reason | Simple | Required if the booking was rejected | Atomic, conditional on decision = rejected |
-
-### Entity: Session
-
-| Attribute | Classification | Description | Notes |
-| --------- | -------------- | ----------- | ----- |
-| session_id | Key | Unique identifier for the session | Uniquely identifies each session occurrence |
-| actual_start_time | Simple | When the space was actually occupied | Atomic, datetime |
-| actual_end_time | Simple | When the usage actually ended | Atomic, datetime |
-| initial_condition | Simple | Condition of the space at check-in | Atomic |
-| final_condition | Simple | Condition of the space at completion | Atomic |
-| usage_notes | Simple | Any notes about the usage session | Atomic |
-
-### Entity: Maintenance Record
-
-| Attribute | Classification | Description | Notes |
-| --------- | -------------- | ----------- | ----- |
-| maintenance_id | Key | Unique identifier for the maintenance record | Uniquely identifies each maintenance record occurrence |
-| problem_description | Simple | Description of the issue | Atomic |
-| start_time | Simple | When the maintenance was reported or started | Atomic, datetime |
-| completion_time | Simple | When the maintenance was completed | Atomic, datetime, nullable |
-| status | Simple | Maintenance status enumeration | Atomic: reported, in_progress, completed |
-| result_note | Simple | Outcome of the maintenance work | Atomic, nullable |
+| Attribute | Classification | Subattributes | Justification |
+| --------- | -------------- | ------------- | ------------- |
+| user_id | Key | — | Uniquely identifies each user |
+| full_name | Composite | first_name, last_name | Can be meaningfully decomposed into first and last name components |
+| email | Simple | — | Atomic value, cannot be meaningfully decomposed |
+| phone_number | Simple | — | Atomic value |
+| role | Simple | — | Atomic enumeration value |
+| department | Simple | — | Atomic value |
+| account_status | Simple | — | Atomic enumeration value |
 
 ---
 
-## 4. Relationships
+### Entity: Space
 
-| Relationship | Degree | Relationship Attributes | Source Entity | Target Entity | Cardinality | Classification | Description |
-| ------------ | ------ | ----------------------- | ------------- | ------------- | ----------- | -------------- | ----------- |
-| submits | Binary | — | User | Booking | 1:N | Non-identifying | A user (requester) creates a booking request to reserve a space. Both entities have independent identity. |
-| reserves | Binary | — | Booking | Space | N:1 | Non-identifying | A booking request reserves a specific space. Both entities have independent identity. |
-| makes | Binary | — | User | Approval | 1:N | Non-identifying | A facility staff member or manager makes an approval decision. User is strong; Approval depends on Booking, not User. |
-| reviews | Binary | — | Approval | Booking | 1:1 | Identifying | An approval decision reviews a specific booking. Booking contributes to the identity of Approval; Approval cannot exist without Booking. |
-| conducts | Binary | — | User | Session | 1:N | Non-identifying | Facility staff conduct a usage session. User is strong; Session depends on Booking, not User. |
-| tracks | Binary | — | Session | Booking | 1:1 | Identifying | A session records actual usage for an approved booking. Booking contributes to the identity of Session; Session cannot exist without Booking. |
-| reports | Binary | — | User | Maintenance Record | 1:N | Non-identifying | A user reports a maintenance issue. Both entities have independent identity. |
-| pertains_to | Binary | — | Maintenance Record | Space | N:1 | Non-identifying | A maintenance record describes an issue with a specific space. Both entities have independent identity. |
-| equipped_with | Binary | quantity | Space | Facility | M:N | Non-identifying | A space is equipped with various facilities. Both entities have independent identity. quantity records the number of units of a facility in a space. |
-| assigned_to | Binary | — | User | Maintenance Record | 1:N | Non-identifying | A facility staff member is assigned to handle a maintenance record. Both entities have independent identity. |
+| Attribute | Classification | Subattributes | Justification |
+| --------- | -------------- | ------------- | ------------- |
+| space_code | Key | — | Uniquely identifies each space |
+| space_name | Simple | — | Atomic value |
+| space_type | Simple | — | Atomic enumeration value |
+| building | Simple | — | Atomic value |
+| floor | Simple | — | Atomic value |
+| room_number | Simple | — | Atomic value |
+| capacity | Simple | — | Atomic numeric value |
+| status | Simple | — | Atomic enumeration value |
+| usage_policy | Simple | — | Atomic text value |
+
+---
+
+### Entity: Facility
+
+| Attribute | Classification | Subattributes | Justification |
+| --------- | -------------- | ------------- | ------------- |
+| facility_id | Key | — | Uniquely identifies each facility type |
+| facility_name | Simple | — | Atomic value |
+| description | Simple | — | Atomic text value |
+
+---
+
+### Entity: Booking
+
+| Attribute | Classification | Subattributes | Justification |
+| --------- | -------------- | ------------- | ------------- |
+| booking_id | Key | — | Uniquely identifies each booking request |
+| requested_start_time | Simple | — | Atomic datetime value |
+| requested_end_time | Simple | — | Atomic datetime value |
+| purpose | Simple | — | Atomic enumeration value |
+| expected_participants | Simple | — | Atomic numeric value |
+| status | Simple | — | Atomic enumeration value |
+
+---
+
+### Entity: Approval
+
+| Attribute | Classification | Subattributes | Justification |
+| --------- | -------------- | ------------- | ------------- |
+| approval_id | Key | — | Uniquely identifies each approval decision |
+| decision | Simple | — | Atomic enumeration value |
+| decision_time | Simple | — | Atomic datetime value |
+| decision_note | Simple | — | Atomic text value |
+| rejection_reason | Simple | — | Atomic text value |
+
+---
+
+### Entity: Session
+
+| Attribute | Classification | Subattributes | Justification |
+| --------- | -------------- | ------------- | ------------- |
+| session_id | Key | — | Uniquely identifies each session |
+| actual_start_time | Simple | — | Atomic datetime value |
+| actual_end_time | Simple | — | Atomic datetime value |
+| initial_condition | Simple | — | Atomic text value |
+| final_condition | Simple | — | Atomic text value |
+| usage_notes | Simple | — | Atomic text value |
+
+---
+
+### Entity: Maintenance Record
+
+| Attribute | Classification | Subattributes | Justification |
+| --------- | -------------- | ------------- | ------------- |
+| maintenance_id | Key | — | Uniquely identifies each maintenance record |
+| problem_description | Simple | — | Atomic text value |
+| start_time | Simple | — | Atomic datetime value |
+| completion_time | Simple | — | Atomic datetime value |
+| status | Simple | — | Atomic enumeration value |
+| result_note | Simple | — | Atomic text value |
+
+---
+
+## 3. Relationships
+
+| Relationship | Degree | Relationship Attributes | Source Entity | Target Entity | Description |
+| ------------ | ------ | ---------------------- | ------------- | ------------- | ----------- |
+| submits | Binary | — | User | Booking | A user (requester) creates a booking request to reserve a space |
+| reserves | Binary | — | Booking | Space | A booking request reserves a specific space for a defined time period |
+| makes | Binary | — | User | Approval | A facility staff member or manager makes an approval decision on a booking request |
+| reviews | Binary | — | Approval | Booking | An approval decision reviews and determines the outcome of a specific booking request |
+| conducts | Binary | — | User | Session | Facility staff conduct a usage session by performing check-in and completion operations |
+| tracks | Binary | — | Session | Booking | A session records the actual usage that corresponds to an approved booking |
+| reports | Binary | — | User | Maintenance Record | A user reports a maintenance issue, creating a maintenance record for a space |
+| pertains_to | Binary | — | Maintenance Record | Space | A maintenance record describes an issue with a specific space |
+| equipped_with | Binary | quantity | Space | Facility | A space is equipped with various facilities; a facility may be available in multiple spaces |
+| assigned_to | Binary | — | User | Maintenance Record | A facility staff member is assigned to handle a specific maintenance record |
+
+### Relationship Classification
+
+| Relationship | Classification | Justification |
+| ------------ | -------------- | ------------- |
+| submits | Non-identifying | Both User and Booking possess independent identity. Relationship does not contribute to entity identification. |
+| reserves | Non-identifying | Both Booking and Space possess independent identity. |
+| makes | Non-identifying | Both User and Approval possess independent identity. |
+| reviews | Non-identifying | Both Approval and Booking possess independent identity. |
+| conducts | Non-identifying | Both User and Session possess independent identity. |
+| tracks | Non-identifying | Both Session and Booking possess independent identity. |
+| reports | Non-identifying | Both User and Maintenance Record possess independent identity. |
+| pertains_to | Non-identifying | Both Maintenance Record and Space possess independent identity. |
+| equipped_with | Non-identifying | Both Space and Facility possess independent identity. |
+| assigned_to | Non-identifying | Both User and Maintenance Record possess independent identity. |
 
 ---
 
 ## 4. Cardinality and Participation Summary
 
-| Relationship | Source | Source Cardinality | Source Participation | Target | Target Cardinality | Target Participation |
-| ------------ | ------ | ----------------- | ------------------- | ------ | ------------------ | -------------------- |
-| submits | User | 1 | Partial (user may not submit bookings) | Booking | N | Total (each booking must be submitted by a user) |
-| reserves | Booking | N | Total (each booking must reserve a space) | Space | 1 | Partial (a space may not be reserved) |
-| makes | User | 1 | Partial (only staff/manager may make approvals) | Approval | N | Total (each approval must be made by a user) |
-| reviews | Approval | 1 | Total (each approval must review a booking) | Booking | 1 | Partial (a booking may have at most one approval) |
-| conducts | User | 1 | Partial (only staff may conduct sessions) | Session | N | Total (each session must be conducted by a user) |
-| tracks | Session | 1 | Total (each session must track a booking) | Booking | 1 | Partial (a booking may have at most one session) |
-| reports | User | 1 | Partial (any user may report issues) | Maintenance Record | N | Total (each maintenance record must be reported by a user) |
-| pertains_to | Maintenance Record | N | Total (each maintenance record must pertain to a space) | Space | 1 | Partial (a space may have multiple maintenance records) |
-| equipped_with | Space | M | Partial (a space may have no facilities listed) | Facility | N | Partial (a facility may not be in any space) |
-| assigned_to | User | 1 | Partial (only staff may be assigned) | Maintenance Record | N | Total (each maintenance record must be assigned to a user) |
+| Relationship | Source Cardinality | Source Participation | Target Cardinality | Target Participation |
+| ------------ | ----------------- | ------------------- | ----------------- | -------------------- |
+| submits | 1 (one user submits many bookings) | Partial (user may not have submitted any booking) | N (many bookings per user) | Total (every booking is submitted by exactly one user) |
+| reserves | N (many bookings per space) | Total (every booking reserves exactly one space) | 1 (one space per booking) | Partial (a space may have no bookings) |
+| makes | 1 (one user makes many approvals) | Partial (not all users make approvals) | N (many approvals per user) | Total (every approval is made by exactly one user) |
+| reviews | 1 (one approval reviews one booking) | Total (every approval reviews exactly one booking) | 1 (one booking has at most one approval) | Partial (a booking may not have an approval yet) |
+| conducts | 1 (one user conducts many sessions) | Partial (not all users conduct sessions) | N (many sessions per user) | Total (every session is conducted by exactly one user) |
+| tracks | 1 (one session tracks one booking) | Total (every session tracks exactly one booking) | 1 (one booking has at most one session) | Partial (a booking may not have a session yet) |
+| reports | 1 (one user reports many maintenance records) | Partial (not all users report maintenance) | N (many records per reporter) | Total (every record is reported by exactly one user) |
+| pertains_to | N (many records per space) | Total (every record pertains to exactly one space) | 1 (one space per record) | Partial (a space may have no maintenance records) |
+| equipped_with | M (a space may have many facilities) | Partial (a space may have no facilities listed) | N (a facility may be in many spaces) | Partial (a facility may not be in any space) |
+| assigned_to | 1 (one user assigned to many records) | Partial (not all users are assigned maintenance) | N (many records per assignee) | Total (every record is assigned to exactly one user) |
 
 ---
 
@@ -135,202 +174,225 @@
 flowchart LR
 
 %% =========================
-%% Entity (Rectangles)
-%% =========================
-User[User]
-Space[Space]
-Facility[Facility]
-Booking[Booking]
-MaintRecord[Maintenance Record]
-
-%% Weak Entity (Double Rectangles)
-Approval[[Approval]]
-Session[[Session]]
-
-%% =========================
-%% Attributes (Ovals)
+%% Entities
 %% =========================
 
-%% User Attributes
-UserID((user_id))
-FullName((full_name))
-Email((email))
-Phone((phone_number))
-Role((role))
-Dept((department))
-AcctStatus((account_status))
-
-%% Space Attributes
-SpaceCode((space_code))
-SpaceName((space_name))
-SpaceType((space_type))
-Building((building))
-Floor((floor))
-RoomNo((room_number))
-Capacity((capacity))
-SpStatus((status))
-UsagePolicy((usage_policy))
-
-%% Facility Attributes
-FacilityID((facility_id))
-FacilityName((facility_name))
-FacDesc((description))
-
-%% Booking Attributes
-BookingID((booking_id))
-ReqStart((requested_start_time))
-ReqEnd((requested_end_time))
-Purpose((purpose))
-ExpParticipants((expected_participants))
-BookStatus((status))
-
-%% Approval Attributes
-ApprovalID((approval_id))
-Decision((decision))
-DecisionTime((decision_time))
-DecisionNote((decision_note))
-RejectionReason((rejection_reason))
-
-%% Session Attributes
-SessionID((session_id))
-ActualStart((actual_start_time))
-ActualEnd((actual_end_time))
-InitCondition((initial_condition))
-FinalCondition((final_condition))
-UsageNotes((usage_notes))
-
-%% Maintenance Record Attributes
-MaintID((maintenance_id))
-ProblemDesc((problem_description))
-MaintStart((start_time))
-CompletionTime((completion_time))
-MaintStatus((status))
-ResultNote((result_note))
+E_User[User]
+E_Space[Space]
+E_Facility[Facility]
+E_Booking[Booking]
+E_Approval[Approval]
+E_Session[Session]
+E_MaintRec[Maintenance Record]
 
 %% =========================
-%% Relationships (Diamonds)
-%% =========================
-Submits{Submits}
-Reserves{Reserves}
-Makes{Makes}
-Reviews{{Reviews}}
-Conducts{Conducts}
-Tracks{{Tracks}}
-Reports{Reports}
-PertainsTo{Pertains To}
-EquippedWith{Equipped With}
-AssignedTo{Assigned To}
-
-%% Relationship Attribute
-Quantity((quantity))
-
-%% =========================
-%% Entity-Attribute Links
+%% Attributes - User
 %% =========================
 
-%% User attributes
-User --- UserID
-User --- FullName
-User --- Email
-User --- Phone
-User --- Role
-User --- Dept
-User --- AcctStatus
+A_U_id((<u>user_id</u>))
+A_U_fullname((full_name))
+A_U_fname((first_name))
+A_U_lname((last_name))
+A_U_email((email))
+A_U_phone((phone_number))
+A_U_role((role))
+A_U_dept((department))
+A_U_status((account_status))
 
-%% Space attributes
-Space --- SpaceCode
-Space --- SpaceName
-Space --- SpaceType
-Space --- Building
-Space --- Floor
-Space --- RoomNo
-Space --- Capacity
-Space --- SpStatus
-Space --- UsagePolicy
+%% =========================
+%% Attributes - Space
+%% =========================
 
-%% Facility attributes
-Facility --- FacilityID
-Facility --- FacilityName
-Facility --- FacDesc
+A_S_code((<u>space_code</u>))
+A_S_name((space_name))
+A_S_type((space_type))
+A_S_bldg((building))
+A_S_floor((floor))
+A_S_room((room_number))
+A_S_cap((capacity))
+A_S_stat((status))
+A_S_policy((usage_policy))
 
-%% Booking attributes
-Booking --- BookingID
-Booking --- ReqStart
-Booking --- ReqEnd
-Booking --- Purpose
-Booking --- ExpParticipants
-Booking --- BookStatus
+%% =========================
+%% Attributes - Facility
+%% =========================
 
-%% Approval attributes
-Approval --- ApprovalID
-Approval --- Decision
-Approval --- DecisionTime
-Approval --- DecisionNote
-Approval --- RejectionReason
+A_F_id((<u>facility_id</u>))
+A_F_name((facility_name))
+A_F_desc((description))
 
-%% Session attributes
-Session --- SessionID
-Session --- ActualStart
-Session --- ActualEnd
-Session --- InitCondition
-Session --- FinalCondition
-Session --- UsageNotes
+%% =========================
+%% Attributes - Booking
+%% =========================
 
-%% Maintenance Record attributes
-MaintRecord --- MaintID
-MaintRecord --- ProblemDesc
-MaintRecord --- MaintStart
-MaintRecord --- CompletionTime
-MaintRecord --- MaintStatus
-MaintRecord --- ResultNote
+A_B_id((<u>booking_id</u>))
+A_B_start((requested_start_time))
+A_B_end((requested_end_time))
+A_B_purpose((purpose))
+A_B_parts((expected_participants))
+A_B_status((status))
+
+%% =========================
+%% Attributes - Approval
+%% =========================
+
+A_A_id((<u>approval_id</u>))
+A_A_dec((decision))
+A_A_time((decision_time))
+A_A_note((decision_note))
+A_A_reason((rejection_reason))
+
+%% =========================
+%% Attributes - Session
+%% =========================
+
+A_Sess_id((<u>session_id</u>))
+A_Sess_start((actual_start_time))
+A_Sess_end((actual_end_time))
+A_Sess_init((initial_condition))
+A_Sess_final((final_condition))
+A_Sess_notes((usage_notes))
+
+%% =========================
+%% Attributes - Maintenance Record
+%% =========================
+
+A_M_id((<u>maintenance_id</u>))
+A_M_problem((problem_description))
+A_M_start((start_time))
+A_M_comp((completion_time))
+A_M_status((status))
+A_M_note((result_note))
+
+%% =========================
+%% Relationships
+%% =========================
+
+R_submits{submits}
+R_reserves{reserves}
+R_makes{makes}
+R_reviews{reviews}
+R_conducts{conducts}
+R_tracks{tracks}
+R_reports{reports}
+R_pertains{pertains_to}
+R_equipped{equipped_with}
+RA_quantity((quantity))
+R_assigned{assigned_to}
+
+%% =========================
+%% Entity-Attribute Links - User
+%% =========================
+
+E_User --- A_U_id
+E_User --- A_U_fullname
+A_U_fullname --- A_U_fname
+A_U_fullname --- A_U_lname
+E_User --- A_U_email
+E_User --- A_U_phone
+E_User --- A_U_role
+E_User --- A_U_dept
+E_User --- A_U_status
+
+%% =========================
+%% Entity-Attribute Links - Space
+%% =========================
+
+E_Space --- A_S_code
+E_Space --- A_S_name
+E_Space --- A_S_type
+E_Space --- A_S_bldg
+E_Space --- A_S_floor
+E_Space --- A_S_room
+E_Space --- A_S_cap
+E_Space --- A_S_stat
+E_Space --- A_S_policy
+
+%% =========================
+%% Entity-Attribute Links - Facility
+%% =========================
+
+E_Facility --- A_F_id
+E_Facility --- A_F_name
+E_Facility --- A_F_desc
+
+%% =========================
+%% Entity-Attribute Links - Booking
+%% =========================
+
+E_Booking --- A_B_id
+E_Booking --- A_B_start
+E_Booking --- A_B_end
+E_Booking --- A_B_purpose
+E_Booking --- A_B_parts
+E_Booking --- A_B_status
+
+%% =========================
+%% Entity-Attribute Links - Approval
+%% =========================
+
+E_Approval --- A_A_id
+E_Approval --- A_A_dec
+E_Approval --- A_A_time
+E_Approval --- A_A_note
+E_Approval --- A_A_reason
+
+%% =========================
+%% Entity-Attribute Links - Session
+%% =========================
+
+E_Session --- A_Sess_id
+E_Session --- A_Sess_start
+E_Session --- A_Sess_end
+E_Session --- A_Sess_init
+E_Session --- A_Sess_final
+E_Session --- A_Sess_notes
+
+%% =========================
+%% Entity-Attribute Links - Maintenance Record
+%% =========================
+
+E_MaintRec --- A_M_id
+E_MaintRec --- A_M_problem
+E_MaintRec --- A_M_start
+E_MaintRec --- A_M_comp
+E_MaintRec --- A_M_status
+E_MaintRec --- A_M_note
 
 %% =========================
 %% Relationship Links
 %% =========================
 
-%% submits: User 1 --- N Booking
-User -- "1" --- Submits
-Submits -- "N" --- Booking
+E_User -- "1" --- R_submits
+R_submits -- "N" --- E_Booking
 
-%% reserves: Booking N --- 1 Space
-Booking -- "N" --- Reserves
-Reserves -- "1" --- Space
+E_Booking -- "N" --- R_reserves
+R_reserves -- "1" --- E_Space
 
-%% makes: User 1 --- N Approval
-User -- "1" --- Makes
-Makes -- "N" --- Approval
+E_User -- "1" --- R_makes
+R_makes -- "N" --- E_Approval
 
-%% reviews: Approval 1 --- 1 Booking (Identifying)
-Approval -- "1" --- Reviews
-Reviews -- "1" --- Booking
+E_Approval -- "1" --- R_reviews
+R_reviews -- "1" --- E_Booking
 
-%% conducts: User 1 --- N Session
-User -- "1" --- Conducts
-Conducts -- "N" --- Session
+E_User -- "1" --- R_conducts
+R_conducts -- "N" --- E_Session
 
-%% tracks: Session 1 --- 1 Booking (Identifying)
-Session -- "1" --- Tracks
-Tracks -- "1" --- Booking
+E_Session -- "1" --- R_tracks
+R_tracks -- "1" --- E_Booking
 
-%% reports: User 1 --- N Maintenance Record
-User -- "1" --- Reports
-Reports -- "N" --- MaintRecord
+E_User -- "1" --- R_reports
+R_reports -- "N" --- E_MaintRec
 
-%% pertains_to: Maintenance Record N --- 1 Space
-MaintRecord -- "N" --- PertainsTo
-PertainsTo -- "1" --- Space
+E_MaintRec -- "N" --- R_pertains
+R_pertains -- "1" --- E_Space
 
-%% equipped_with: Space M --- N Facility
-Space -- "M" --- EquippedWith
-EquippedWith -- "N" --- Facility
+E_Space -- "M" --- R_equipped
+R_equipped -- "N" --- E_Facility
+R_equipped --- RA_quantity
 
-%% quantity is a relationship attribute of equipped_with
-EquippedWith --- Quantity
-
-%% assigned_to: User 1 --- N Maintenance Record
-User -- "1" --- AssignedTo
-AssignedTo -- "N" --- MaintRecord
-
+E_User -- "1" --- R_assigned
+R_assigned -- "N" --- E_MaintRec
 ```
 
 ---
@@ -339,62 +401,47 @@ AssignedTo -- "N" --- MaintRecord
 
 ### Entity Coverage
 
-* [x] Every accepted entity appears in the ERD.
-* [x] No rejected candidate appears as an entity.
-* [x] Strong entities: User, Space, Facility, Booking, Maintenance Record.
-* [x] Weak entities: Approval (dependent on Booking), Session (dependent on Booking).
+* [X] Every accepted entity appears in the ERD.
+* [X] No rejected candidate appears as an entity.
 
 ### Attribute Coverage
 
-* [x] Every major attribute appears in the ERD.
-* [x] Key attributes are shown for all entities.
-* [x] No derived attributes identified in the current model.
-* [x] No multivalued attributes identified in the current model.
-* [x] full_name classified as composite (decomposable into first_name/last_name).
+* [X] Every major attribute appears in the ERD.
+* [X] Subattributes of composite attribute are represented.
 
 ### Relationship Coverage
 
-* [x] Every relationship appears in the ERD.
-* [x] Every relationship includes cardinality information.
-* [x] Identifying relationships: reviews (Approval → Booking), tracks (Session → Booking).
-* [x] Non-identifying relationships: submits, reserves, makes, conducts, reports, pertains_to, equipped_with, assigned_to.
+* [X] Every relationship appears in the ERD.
+* [X] Every relationship includes cardinality information.
 
 ### Participation Coverage
 
-* [x] Participation constraints are documented where known.
-* [x] Total participation: Booking in submits, Booking in reserves, Approval in makes, Approval in reviews, Session in conducts, Session in tracks, Maintenance Record in reports, Maintenance Record in pertains_to, Maintenance Record in assigned_to.
-* [x] Partial participation: User in submits, Space in reserves, User in makes, Booking in reviews, User in conducts, Booking in tracks, User in reports, Space in pertains_to, Space in equipped_with, Facility in equipped_with, User in assigned_to.
+* [X] Participation constraints are documented where known.
 
 ### Conceptual Modeling Compliance
 
-* [x] No primary keys shown.
-* [x] No foreign keys shown.
-* [x] No junction tables shown.
-* [x] No SQL concepts shown.
-* [x] Chen notation semantics preserved.
-* [x] Weak entities shown in double rectangles.
-* [x] Identifying relationships shown in double diamonds.
+* [X] No primary keys shown.
+* [X] No foreign keys shown.
+* [X] No junction tables shown.
+* [X] No SQL concepts shown.
+* [X] Chen notation semantics preserved.
 
 ### Diagram Validation
 
-* [x] Mermaid syntax is valid.
-* [x] Mermaid Flowchart notation is used.
-* [x] Mermaid ERD notation is not used.
+* [X] Mermaid syntax is valid.
+* [X] Mermaid Flowchart notation is used.
+* [X] Mermaid ERD notation is not used.
 
 ---
 
-## 7. Assumptions and Modeling Decisions
+## 7. Assumptions
 
-| ID | Assumption / Decision |
-| -- | --------------------- |
-| EMD-01 | Approval is classified as a Weak Entity because its existence depends entirely on a Booking. Without a booking, there is no approval decision. The reviews relationship is identifying. |
-| EMD-02 | Session is classified as a Weak Entity because its existence depends entirely on an approved Booking. Without a booking, there is no session. The tracks relationship is identifying. |
-| EMD-03 | Maintenance Record is classified as a Strong Entity because it has its own identity (maintenance_id) and its existence is independent of any single entity, even though it relates to Space and User. |
-| EMD-04 | full_name is classified as Composite because it can be decomposed into first_name and last_name. |
-| EMD-05 | phone_number is classified as Simple (single-valued) per the entity catalog. If multiple phone numbers per user are needed in the future, reclassify as Multivalued. |
-| EMD-06 | role is classified as Simple pending clarification of AM-02 (whether a user can hold multiple roles). If multiple roles are allowed, reclassify as Multivalued. |
-| EMD-07 | quantity is modeled as a relationship attribute of equipped_with (Space ↔ Facility, M:N) as specified in the business analysis. |
-| EMD-08 | No derived attributes are present in the current model. Derived attributes such as booking_duration (from requested_start_time and requested_end_time) could be added in a future refinement. |
-| EMD-09 | No multivalued attributes are present in the current model. The facility list per space is modeled as a separate entity (Facility) with an M:N relationship, consistent with assumption A-04. |
-
----
+| ID | Assumption |
+| -- | ---------- |
+| ERD-A01 | All entities are classified as Strong because each possesses a unique identifier that can independently identify entity occurrences. |
+| ERD-A02 | The `full_name` attribute of User is classified as Composite and decomposed into `first_name` and `last_name` subattributes, even though the business analysis lists it as a single attribute, because it can be meaningfully decomposed. |
+| ERD-A03 | All relationships are Non-identifying because all participating entities are Strong and possess independent identity. |
+| ERD-A04 | No Derived attributes are present in the current model — all attribute values require explicit storage. |
+| ERD-A05 | No Multivalued attributes are present — all multi-value concepts (e.g., facilities per space) are modeled as separate entities with relationships. |
+| ERD-A06 | The `quantity` attribute on the `equipped_with` relationship is the only relationship attribute in the model. |
+| ERD-A07 | Cardinality labels in the ERD diagram use simplified notation (e.g., "1", "N") following Chen convention rather than explicit labels like "1..N" or "0..N". |
