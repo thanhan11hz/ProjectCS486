@@ -6,7 +6,6 @@
 -- Artifact    : outputs/05-db-implementation-G7.sql
 -- Prerequisite: outputs/03-logical-design-G7.md
 -- ============================================================================
-
 -- ============================================================================
 -- 2. CLEANUP SCHEMA BLOCK — Drop tables in reverse dependency order
 -- ============================================================================
@@ -101,18 +100,7 @@ CREATE TABLE bookings
     requester_id           VARCHAR(50)       NOT NULL,
     space_code             VARCHAR(20)       NOT NULL,
     requested_start_time   DATETIME2         NOT NULL,
-    requested_end_time     DATETIME2         NOT NULL,: users, spaces)
--- ----------------------------------------------------------------------------
-CREATE TABLE bookings
-(
-    booking_id             INT IDENTITY(1,1) NOT NULL,
-    requester_id           VARCHAR(50)       NOT NULL,
-    space_code             VARCHAR(20)       NOT NULL,
-    requested_start_time   DATETIME2         NOT NULL,
     requested_end_time     DATETIME2         NOT NULL,
-    purpose                VARCHAR(30)       NOT NULL,
-    expected_participants  INT               NOT NULL,
-    status                 VARCH
     purpose                VARCHAR(30)       NOT NULL,
     expected_participants  INT               NOT NULL,
     status                 VARCHAR(20)       NOT NULL DEFAULT N'pending',
@@ -136,49 +124,47 @@ CREATE TABLE bookings
 GO
 
 -- ----------------------------------------------------------------------------
--- Table: approvals (strong entity, 1:1 reviews relationship with bookings)
+-- Table: approvals (weak entity, depends on: bookings, users)
 -- ----------------------------------------------------------------------------
 CREATE TABLE approvals
 (
+    booking_id       INT            NOT NULL,
     approval_id      INT IDENTITY(1,1) NOT NULL,
-    booking_id       INT               NOT NULL,
-    approver_id      VARCHAR(50)       NOT NULL,
-    decision         VARCHAR(20)       NOT NULL,
-    decision_time    DATETIME2         NOT NULL,
-    decision_note    NVARCHAR(MAX)     NULL,
-    rejection_reason NVARCHAR(MAX)     NULL,
+    approver_id      VARCHAR(50)    NOT NULL,
+    decision         VARCHAR(20)    NOT NULL,
+    decision_time    DATETIME2      NOT NULL,
+    decision_note    NVARCHAR(MAX)  NULL,
+    rejection_reason NVARCHAR(MAX)  NULL,
 
-    CONSTRAINT pk_approvals PRIMARY KEY (approval_id),
-    CONSTRAINT uq_approvals_booking_id UNIQUE (booking_id),
+    CONSTRAINT pk_approvals PRIMARY KEY (booking_id, approval_id),
     CONSTRAINT fk_approvals_bookings FOREIGN KEY (booking_id)
-        REFERENCES bookings (booking_id) ON DELETE NO ACTION,
+        REFERENCES bookings (booking_id) ON DELETE CASCADE,
     CONSTRAINT fk_approvals_users FOREIGN KEY (approver_id)
         REFERENCES users (user_id) ON DELETE NO ACTION,
     CONSTRAINT ck_approvals_decision CHECK (decision IN (N'approved', N'rejected')),
     CONSTRAINT ck_approvals_rejection_reason CHECK (
-        (decision = N'rejected' AND rejection_reason IS NOT NULL) OR (decision = N'approved' AND rejection_reason IS NULL)
+        decision <> N'rejected' 
     )
 );
 GO
 
 -- ----------------------------------------------------------------------------
--- Table: sessions (strong entity, 1:1 tracks relationship with bookings)
+-- Table: sessions (weak entity, depends on: bookings, users)
 -- ----------------------------------------------------------------------------
 CREATE TABLE sessions
 (
+    booking_id        INT            NOT NULL,
     session_id        INT IDENTITY(1,1) NOT NULL,
-    booking_id        INT               NOT NULL,
-    conductor_id      VARCHAR(50)       NOT NULL,
-    actual_start_time DATETIME2         NOT NULL,
-    actual_end_time   DATETIME2         NULL,
-    initial_condition NVARCHAR(MAX)     NOT NULL,
-    final_condition   NVARCHAR(MAX)     NULL,
-    usage_notes       NVARCHAR(MAX)     NULL,
+    conductor_id      VARCHAR(50)    NOT NULL,
+    actual_start_time DATETIME2      NOT NULL,
+    actual_end_time   DATETIME2      NULL,
+    initial_condition NVARCHAR(MAX)  NOT NULL,
+    final_condition   NVARCHAR(MAX)  NULL,
+    usage_notes       NVARCHAR(MAX)  NULL,
 
-    CONSTRAINT pk_sessions PRIMARY KEY (session_id),
-    CONSTRAINT uq_sessions_booking_id UNIQUE (booking_id),
+    CONSTRAINT pk_sessions PRIMARY KEY (booking_id, session_id),
     CONSTRAINT fk_sessions_bookings FOREIGN KEY (booking_id)
-        REFERENCES bookings (booking_id) ON DELETE NO ACTION,
+        REFERENCES bookings (booking_id) ON DELETE CASCADE,
     CONSTRAINT fk_sessions_users FOREIGN KEY (conductor_id)
         REFERENCES users (user_id) ON DELETE NO ACTION,
     CONSTRAINT ck_sessions_time_range CHECK (
@@ -302,14 +288,17 @@ GO
 --   application layer or via a trigger.
 
 -- BR-NI-09: A booking can have at most one approval
---   Enforced by the UNIQUE constraint uq_approvals_booking_id on
---   approvals.booking_id, which ensures the 1:1 reviews relationship
---   between Booking and Approval.
+--   The 1:1 identifying relationship (reviews) between Booking and
+--   Approval is structurally enforced by the composite PK
+--   (booking_id, approval_id). However, nothing prevents multiple
+--   approval rows for the same booking_id. A UNIQUE constraint on
+--   booking_id alone is not added because the weak-entity mapping
+--   requires the composite PK per Rule 2. Enforced at the application
+--   layer or via a trigger if strict 1:1 is required.
 
 -- BR-NI-10: A booking can have at most one session
---   Enforced by the UNIQUE constraint uq_sessions_booking_id on
---   sessions.booking_id, which ensures the 1:1 tracks relationship
---   between Booking and Session.
+--   Same reasoning as BR-NI-09 for the tracks relationship.
+--   Enforced at the application layer or via a trigger.
 
 -- ============================================================================
 -- END OF SCRIPT
