@@ -241,24 +241,19 @@ Do **not** assume:
 - Stored procedures
 - Assertions
 - Exclusion constraints
-- Cross-table CHECK constraints
+- Tuple-based CHECK constraints
 - Application logic
-- Scheduled jobs
-- Manual procedures
 
 Mark a rule as **Not Enforceable** if it requires:
 
-- Tuple-based CHECK constraints.
-- Cross-domain CHECK constraints.
 - Validation involving another table beyond foreign keys.
+- Validation involving multiple attributes of a tuple.
 - Validation involving multiple rows.
-- Detection of overlapping time periods.
 - Workflow or state transition logic.
 - Historical record preservation.
-- Automatic time-based updates.
+- Automatic updates.
 - Conditional existence of related records.
 - User role or permission validation.
-- Knowledge of previous database states.
 
 # Execution process
 
