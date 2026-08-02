@@ -14,6 +14,8 @@ The logical design must identify:
 
 * Relations
 * Attributes
+* Attribute domains
+* Default values (if implied)
 * Primary Keys
 * Candidate Keys
 * Foreign Keys
@@ -58,12 +60,13 @@ If missing:
 
 1. Read the conceptual ERD.
 2. Identify entities and their attributes.
-3. Identify entity identifiers and candidate keys.
-4. Identify relationships and cardinalities.
-5. Identify participation constraints.
-6. Identify relationship attributes.
-7. Identify multivalued, composite, weak, recursive, and specialization constructs.
-8. Determine the required relational mappings.
+3. Infer attribute domains from business requirements.
+4. Identify entity identifiers and candidate keys.
+5. Identify relationships and cardinalities.
+6. Identify participation constraints.
+7. Identify relationship attributes.
+8. Identify multivalued, composite, weak, recursive, and specialization constructs.
+9. Determine the required relational mappings.
 
 ---
 
@@ -77,6 +80,9 @@ For each strong entity:
 
 * Create one relation.
 * Include all simple attributes.
+* Determine the logical domain of every attribute.
+* Record whether NULL values are permitted.
+* Record any business-defined default value if explicitly stated.
 * Decompose composite attributes into simple components.
 * Select the entity identifier as the primary key.
 * Preserve alternative identifiers as candidate keys.
@@ -89,6 +95,8 @@ For each weak entity:
 
 * Create one relation.
 * Include all simple attributes.
+* Determine attribute domains.
+* Record nullability.
 * Include the primary key of the owner entity as a foreign key.
 * Primary key = Owner Primary Key + Partial Key.
 
@@ -229,6 +237,33 @@ If retained:
 
 ---
 
+### Rule 14 - Attribute Domain Identification
+
+For every attribute determine:
+
+* Logical data type
+* Maximum length (if textual)
+* Allowed value set (enumeration)
+* Value range
+* NULL / NOT NULL
+* Default value (if business requirements specify one)
+
+Do not invent implementation-specific SQL types.
+Use logical domains such as:
+
+Integer
+Decimal
+String(100)
+Boolean
+Date
+Timestamp
+Email
+Phone
+Enumeration
+Identifier
+
+---
+
 ## Execution process
 
 Perform the following steps in order.
@@ -257,6 +292,9 @@ For each entity:
 * Determine whether it is strong or weak.
 * Apply the appropriate entity mapping rule.
 * Create the corresponding relation.
+* Determine the logical domain of every attribute.
+* Record nullability.
+* Record inferred default values.
 * Define primary key.
 * Record candidate keys.
 
@@ -341,6 +379,10 @@ Identify logical constraints implied by the conceptual model:
 * Candidate key constraints
 * Referential integrity constraints
 * Mandatory participation constraints that can be represented logically
+* Domain constraints
+* Enumeration constraints
+* Value range constraints
+* Nullability constraints
 
 Do not introduce implementation-specific constraints.
 
@@ -441,6 +483,10 @@ Before saving:
 * No implementation-specific details are included.
 * No SQL syntax appears.
 * Logical schema is complete and internally consistent.
+* Every attribute has an identified logical domain.
+* Enumerated domains are documented.
+* Value ranges are documented.
+* Nullable attributes are identified.
 
 ---
 

@@ -118,22 +118,7 @@ These should be attributes of an existing entity.
 
 ---
 
-### 7. Independent Lifecycle Rule
-
-A concept is likely an entity if it has its own lifecycle or state transitions.
-
-Examples:
-
-* Sessions have a lifecycle distinct from Booking (scheduled booking may never produce a Session; Sessions may be created or modified by facility staff later).
-* Approvals can be created, modified, or revoked independently of the Booking (not just a single timestamp/flag).
-
-Lifecycle states themselves are not entities.
-
-The business record that owns the lifecycle is the entity.
-
----
-
-### 8. Extensibility Rule
+### 7. Extensibility Rule
 
 Design entities with consideration for future system changes and feature expansion.
 
@@ -145,7 +130,7 @@ An entity should be structured in a way that allows the system to:
 
 ---
 
-### 9. Faithfulness Principle (**Important**)
+### 8. Faithfulness Principle (**Important**)
 
 Entity sets and their attributes should closely reflect **real-world concepts and processes**.
 

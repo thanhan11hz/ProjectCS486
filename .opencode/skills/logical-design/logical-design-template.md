@@ -78,7 +78,28 @@ Describe identifying relationship mappings.
 
 ---
 
-# 3. Relationship Mapping
+# 3. Attribute Catalog
+
+| Relation | Attribute | Logical Domain | Nullable | Allowed Values / Range | Default | Notes |
+|----------|-----------|----------------|----------|------------------------|---------|------|
+| | | | | | | |
+
+For every attribute in every relation, document:
+
+- **Relation:** The relation that contains the attribute.
+- **Attribute:** The attribute name.
+- **Logical Domain:** The logical data type (e.g., Identifier, Integer, Decimal, String(100), Date, Timestamp, Boolean, Email, Phone, Enumeration).
+- **Nullable:** Whether the attribute allows `NULL` values (`Yes` or `No`).
+- **Allowed Values / Range:**
+  - For **Enumeration**, list all valid values.
+  - For **Numeric** attributes, specify the valid range (e.g., `>= 0`, `1..500`, `0-100`).
+  - For **String** attributes, specify any required pattern or business rule if applicable.
+- **Default:** The default value if explicitly specified in the business requirements; otherwise leave blank.
+- **Notes:** Any additional assumptions or remarks relevant to the attribute.
+
+---
+
+# 4. Relationship Mapping
 
 ## Binary 1:1 Relationships
 
@@ -130,7 +151,7 @@ Describe identifying relationship mappings.
 
 ---
 
-# 4. Special Construct Resolution
+# 5. Special Construct Resolution
 
 ## Composite Attributes
 
@@ -156,17 +177,7 @@ Describe identifying relationship mappings.
 
 ---
 
-## Generalization / Specialization
-
-### Strategy
-
-Describe selected inheritance mapping strategy.
-
-### Rationale
-
----
-
-# 5. Foreign Key Analysis
+# 6. Foreign Key Analysis
 
 | Relation | Foreign Key | References |
 |----------|------------|------------|
@@ -176,7 +187,7 @@ Describe selected inheritance mapping strategy.
 
 ---
 
-# 6. Candidate Key Analysis
+# 7. Candidate Key Analysis
 
 | Relation | Candidate Key | Justification |
 |----------|----------|----------|
@@ -184,7 +195,7 @@ Describe selected inheritance mapping strategy.
 
 ---
 
-# 7. Integrity Constraint Analysis
+# 8. Integrity Constraint Analysis
 
 ## Entity Integrity
 
@@ -204,7 +215,7 @@ Describe candidate key constraints.
 
 ---
 
-# 8. Relational Schema Diagram
+# 9. Relational Schema Diagram
 
 ```mermaid
 erDiagram

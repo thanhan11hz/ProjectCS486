@@ -120,8 +120,6 @@ If the same constraint can be inferred from multiple sources:
 
 Perform the following steps in order.
 
-Perform the following steps in order.
-
 ### Step 1 — Extract Explicit Business Rules
 
 Review the business requirements.
