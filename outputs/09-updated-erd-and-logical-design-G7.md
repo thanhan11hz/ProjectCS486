@@ -1,176 +1,81 @@
-# Updated ERD and Logical Database Design (Phase 2)
+# Updated ERD and Logical Database Design
 
-Baseline: `outputs/02-erd-design-G7.md`, `outputs/03-logical-design-G7.md` (Phase 1)
-Changes source: `outputs/08-req-change-analysis-G7.md` (RC-01 .. RC-08)
-Status: incremental design update — the Phase 1 design is preserved and extended, not redesigned.
+Baseline: `outputs/02-erd-design-G7.md` and `outputs/03-logical-design-G7.md` (Phase 1)
+Change source: `outputs/08-req-change-analysis-G7.md` (Phase 2, RC-01 to RC-08)
 
----
-
-## 1. Requirement Changes Applied
-
-| ID | Requirement Change | Design Impact |
-| -- | ------------------ | ------------- |
-| RC-01 | Maintenance impact levels (out-of-service / advisory). | New attribute `Maintenance_Record.impact_level`; booking availability now governed by impact level (BR-42, BR-44). |
-| RC-02 | Advisory maintenance does not block booking; requester notified and acknowledgement recorded with the booking. | New attribute `Booking.advisory_acknowledgement` (BR-45, BR-46). |
-| RC-03 | Several active maintenance records per space allowed, with different impact levels. | `pertains_to` semantics change; BR-19 removed, BR-43 introduced. No structural change. |
-| RC-04 | Impact level may be escalated or downgraded while the record is open. | `impact_level` is mutable while the record is open (BR-47). No history entity introduced (see Assumption UERD-02). |
-| RC-05 | Identify already-approved bookings overlapping a period escalated to out-of-service. | Derived query (BR-48). No schema change. |
-| RC-06 | Instant booking: auto-approval at submission for selected space types satisfying the usage policy. | Approval lifecycle extension (BR-49). No new entity; automatic Approval record (Design Decision ULD-01). |
-| RC-07 | No-overlap rule must hold under concurrent operations for both booking paths. | BR-14 extended by BR-50. Enforcement delegated to the concurrency implementation stage. |
-| RC-08 | New reporting needs (hours per space, by weekday/hour, availability matching, escalation impact). | Derived reports only (Assumption A-05 from 08). No schema change. |
+This document presents the Phase 2 updated conceptual ERD and relational schema. It preserves the Phase 1 design wherever the requirements did not change it. Every change is annotated with its source requirement change (RC-xx) and the affected business rules.
 
 ---
 
-## 2. Design Change Summary
+## 1. Change Overview
 
-| Change | Element | Requirement Changes |
-| ------ | ------- | ------------------- |
-| Attribute added | `Maintenance_Record.impact_level` (enumeration: advisory, out_of_service) | RC-01, RC-04 |
-| Attribute added | `Booking.advisory_acknowledgement` (boolean, conditional) | RC-02 |
-| Relationship semantics modified | `pertains_to` — multiple simultaneous active records per space | RC-01, RC-03 |
-| Relationship semantics modified | `reserves` — advisory-permitted booking with recorded acknowledgement; extended no-overlap rule | RC-02, RC-07 |
-| Business rule removed | BR-19 (no overlapping active maintenance) | RC-03 |
-| Business rules added / modified | BR-14 (modified), BR-32 (modified), BR-33 (modified), BR-42 .. BR-50 (new) | RC-01 .. RC-07 |
-| Entities added / removed | None | 08 §3 note |
-| Relationships added / removed | None | 08 §5 |
-| Candidate keys changed | None | — |
+| # | Design Element | Change Type | Source | Description |
+| - | -------------- | ----------- | ------ | ----------- |
+| C-01 | Maintenance Record entity / Maintenance_Record relation | Attribute added | RC-01, RC-04 | New attribute `impact_level` (out-of-service / advisory). |
+| C-02 | Booking entity / Booking relation | Attribute added | RC-02 | New attribute `advisory_acknowledgement` recording that the requester was informed of all active advisories at booking time. |
+| C-03 | pertains_to (Maintenance Record → Space) | Semantics modified | RC-01, RC-03 | A space may now have several simultaneously active maintenance records with different impact levels. Structure unchanged (still 1:N, FK on N-side). |
+| C-04 | reserves (Booking → Space) | Semantics modified | RC-02, RC-07 | Booking a space with only advisory maintenance is permitted when the requester is notified and acknowledges; out-of-service maintenance blocks overlapping bookings. Structure unchanged. |
+| C-05 | Cross-relation constraints | Modified / added / removed | RC-01..RC-07 | BR-19 removed; BR-32/BR-33 replaced by BR-44; BR-42, BR-44, BR-45, BR-46, BR-47 added as logical constraints; BR-14 retained (strengthened by BR-50 at concurrency level). |
+| C-06 | No new entities or relationships | — | RC-01..RC-08 | All changes operate on existing entities (Maintenance Record, Booking, Space). Instant booking (RC-06) and reporting (RC-08) require no schema change (see Section 6.4). |
 
 ---
 
-# Part A — Updated Conceptual ERD
+## 2. Updated Conceptual ERD
 
-## 3.1 Entity Definitions
+### 2.1 Entity Definitions (unchanged)
 
-| Entity | Type | Change | Description |
-| ------ | ---- | ------ | ----------- |
-| User | Strong | Unchanged | A person who interacts with the system. Users have university accounts and can act in various roles (student, lecturer, teaching assistant, facility staff, department administrator, facility manager). |
-| Space | Strong | Unchanged | A bookable physical location on campus managed by the School of Computer Science. Booking availability of a space is now determined by the impact level of its active maintenance records (RC-01). |
-| Facility | Strong | Unchanged | Equipment or amenities available in a space (projector, whiteboard, microphone, computer, livestreaming equipment, air conditioner, etc.). |
-| Booking | Strong | Modified | A request submitted by a user to reserve a space for a specific time period and purpose. Now additionally records the requester's acknowledgement of active advisories (RC-02) and may be approved automatically at submission for selected space types (RC-06). |
-| Approval | Strong | Unchanged (semantics extended) | A decision made by facility staff or manager to approve or reject a booking request. Instant bookings (RC-06) are represented by an automatic approval decision (Design Decision ULD-01). |
-| Session | Strong | Unchanged | The actual usage of a space corresponding to a booking. Captures what happened in reality versus what was requested. |
-| Maintenance Record | Strong | Modified | A record of a maintenance issue reported for a space, tracking the problem through resolution. Now carries an impact level (out-of-service or advisory) (RC-01); several records may be active for the same space simultaneously (RC-03); the impact level may change while the record is open (RC-04). |
+| Entity | Type | Description |
+| ------ | ---- | ----------- |
+| User | Strong | A person who interacts with the system. Users have university accounts and can act in various roles (student, lecturer, teaching assistant, facility staff, department administrator, facility manager). |
+| Space | Strong | A bookable physical location on campus managed by the School of Computer Science. |
+| Facility | Strong | Equipment or amenities available in a space (projector, whiteboard, microphone, computer, livestreaming equipment, air conditioner, etc.). |
+| Booking | Strong | A request submitted by a user to reserve a space for a specific time period and purpose. |
+| Approval | Strong | A decision made by facility staff or manager to approve or reject a booking request. Existence depends on Booking. |
+| Session | Strong | The actual usage of a space corresponding to a booking. Captures what happened in reality versus what was requested. Existence depends on Booking. |
+| Maintenance Record | Strong | A record of a maintenance issue reported for a space, tracking the problem through resolution. |
 
-No entity is added or removed (08 §3: "no new business entity is explicitly required").
+No entity is added or removed by the Phase 2 requirements.
 
----
+### 2.2 Attributes (updated)
 
-## 3.2 Attributes
-
-### Entity: User (unchanged)
+#### Entity: Booking — NEW attribute (RC-02)
 
 | Attribute | Classification | Subattributes | Justification |
 | --------- | -------------- | ------------- | ------------- |
-| user_id | Key | — | Uniquely identifies each user |
-| full_name | Composite | first_name, last_name | Can be meaningfully decomposed into first and last name components |
-| email | Simple | — | Atomic value |
-| phone_number | Simple | — | Atomic value |
-| role | Simple | — | Atomic enumeration value |
-| department | Simple | — | Atomic value |
-| account_status | Simple | — | Atomic enumeration value |
+| advisory_acknowledgement | Simple | — | Records that the requester was informed of all active advisories on the space at booking time and acknowledged them (BR-46). Atomic value. |
 
-### Entity: Space (unchanged)
+The remaining Booking attributes (booking_id, requested_start_time, requested_end_time, purpose, expected_participants, status) are unchanged from Phase 1.
+
+#### Entity: Maintenance Record — NEW attribute (RC-01, RC-04)
 
 | Attribute | Classification | Subattributes | Justification |
 | --------- | -------------- | ------------- | ------------- |
-| space_code | Key | — | Uniquely identifies each space |
-| space_name | Simple | — | Atomic value |
-| space_type | Simple | — | Atomic enumeration value |
-| building | Simple | — | Atomic value |
-| floor | Simple | — | Atomic value |
-| room_number | Simple | — | Atomic value |
-| capacity | Simple | — | Atomic numeric value |
-| status | Simple | — | Atomic enumeration value |
-| usage_policy | Simple | — | Atomic text value |
+| impact_level | Simple | — | Severity of the maintenance with respect to space usability: out-of-service (space unusable; booking blocked for overlapping periods) or advisory (space usable; notification required). Atomic enumeration value; may change while the record is open (BR-47). |
 
-### Entity: Facility (unchanged)
+The remaining Maintenance Record attributes (maintenance_id, problem_description, start_time, completion_time, status, result_note) are unchanged from Phase 1.
 
-| Attribute | Classification | Subattributes | Justification |
-| --------- | -------------- | ------------- | ------------- |
-| facility_id | Key | — | Uniquely identifies each facility type |
-| facility_name | Simple | — | Atomic value |
-| description | Simple | — | Atomic text value |
+#### All other entities
 
-### Entity: Booking (modified)
+User, Space, Facility, Approval, Session attributes are unchanged from Phase 1.
 
-| Attribute | Classification | Change | Subattributes | Justification |
-| --------- | -------------- | ------ | ------------- | ------------- |
-| booking_id | Key | Unchanged | — | Uniquely identifies each booking request |
-| requested_start_time | Simple | Unchanged | — | Atomic datetime value |
-| requested_end_time | Simple | Unchanged | — | Atomic datetime value |
-| purpose | Simple | Unchanged | — | Atomic enumeration value |
-| expected_participants | Simple | Unchanged | — | Atomic numeric value |
-| status | Simple | Unchanged | — | Atomic enumeration value; lifecycle now also includes automatic approval at submission (RC-06, BR-49) |
-| advisory_acknowledgement | Simple | **New (RC-02)** | — | Boolean value recording that the requester was informed of all active advisories on the space at booking time and acknowledged them (BR-46). NULL when no advisory was active at booking time; must be TRUE when advisories were active (BR-45). |
+### 2.3 Relationships (updated semantics, unchanged structure)
 
-### Entity: Approval (unchanged)
+| Relationship | Degree | Relationship Attributes | Source Entity | Target Entity | Description |
+| ------------ | ------ | ---------------------- | ------------- | ------------- | ----------- |
+| submits | Binary | — | User | Booking | A user (requester) creates a booking request to reserve a space |
+| reserves | Binary | — | Booking | Space | **MODIFIED (RC-02, RC-07):** A booking reserves a space; permitted for spaces with active advisory maintenance when the requester is notified and acknowledges (BR-45); not permitted for periods overlapping active out-of-service maintenance (BR-44). Validity must hold under concurrent booking and approval operations (BR-50). |
+| makes | Binary | — | User | Approval | A facility staff member or manager makes an approval decision on a booking request |
+| reviews | Binary | — | Approval | Booking | An approval decision reviews and determines the outcome of a specific booking request |
+| conducts | Binary | — | User | Session | Facility staff conduct a usage session by performing check-in and completion operations |
+| tracks | Binary | — | Session | Booking | A session records the actual usage that corresponds to an approved booking |
+| reports | Binary | — | User | Maintenance Record | A user reports a maintenance issue, creating a maintenance record for a space |
+| pertains_to | Binary | — | Maintenance Record | Space | **MODIFIED (RC-01, RC-03):** A maintenance record describes an issue with a specific space; a space may now have several simultaneously active maintenance records with different impact levels (BR-43). |
+| equipped_with | Binary | quantity | Space | Facility | A space is equipped with various facilities; a facility may be available in multiple spaces |
+| assigned_to | Binary | — | User | Maintenance Record | A facility staff member is assigned to handle a specific maintenance record |
 
-| Attribute | Classification | Subattributes | Justification |
-| --------- | -------------- | ------------- | ------------- |
-| approval_id | Key | — | Uniquely identifies each approval decision |
-| decision | Simple | — | Atomic enumeration value |
-| decision_time | Simple | — | Atomic datetime value |
-| decision_note | Simple | — | Atomic text value |
-| rejection_reason | Simple | — | Atomic text value |
+No relationship is added or removed.
 
-### Entity: Session (unchanged)
-
-| Attribute | Classification | Subattributes | Justification |
-| --------- | -------------- | ------------- | ------------- |
-| session_id | Key | — | Uniquely identifies each session |
-| actual_start_time | Simple | — | Atomic datetime value |
-| actual_end_time | Simple | — | Atomic datetime value |
-| initial_condition | Simple | — | Atomic text value |
-| final_condition | Simple | — | Atomic text value |
-| usage_notes | Simple | — | Atomic text value |
-
-### Entity: Maintenance Record (modified)
-
-| Attribute | Classification | Change | Subattributes | Justification |
-| --------- | -------------- | ------ | ------------- | ------------- |
-| maintenance_id | Key | Unchanged | — | Uniquely identifies each maintenance record |
-| problem_description | Simple | Unchanged | — | Atomic text value |
-| start_time | Simple | Unchanged | — | Atomic datetime value |
-| completion_time | Simple | Unchanged | — | Atomic datetime value |
-| status | Simple | Unchanged | — | Atomic enumeration value |
-| result_note | Simple | Unchanged | — | Atomic text value |
-| impact_level | Simple | **New (RC-01)** | — | The severity of the maintenance with respect to space usability (BR-42): `out_of_service` (space unusable; booking blocked for overlapping periods, BR-44) or `advisory` (space usable; requester notified, BR-45). Single-valued current level; may be escalated or downgraded while the record is open (RC-04, BR-47). |
-
----
-
-## 3.3 Relationships
-
-| Relationship | Degree | Change | Relationship Attributes | Source Entity | Target Entity | Description |
-| ------------ | ------ | ------ | ---------------------- | ------------- | ------------- | ----------- |
-| submits | Binary | Unchanged | — | User | Booking | A user (requester) creates a booking request to reserve a space |
-| reserves | Binary | Modified (RC-02, RC-07) | — | Booking | Space | A booking request reserves a specific space for a defined time period. A booking for a space with active advisory maintenance is permitted when the requester is notified and acknowledges (BR-45, BR-46); the no-overlap rule applies to both instant and staff-approved bookings under concurrent operations (BR-50). |
-| makes | Binary | Unchanged | — | User | Approval | A facility staff member or manager makes an approval decision on a booking request; instant bookings receive an automatic approval decision (RC-06) |
-| reviews | Binary | Unchanged | — | Approval | Booking | An approval decision reviews and determines the outcome of a specific booking request |
-| conducts | Binary | Unchanged | — | User | Session | Facility staff conduct a usage session by performing check-in and completion operations |
-| tracks | Binary | Unchanged | — | Session | Booking | A session records the actual usage that corresponds to an approved booking |
-| reports | Binary | Unchanged | — | User | Maintenance Record | A user reports a maintenance issue, creating a maintenance record for a space |
-| pertains_to | Binary | Modified (RC-01, RC-03) | — | Maintenance Record | Space | A maintenance record describes an issue with a specific space. A space may now have several active maintenance records simultaneously with different impact levels (BR-43), replacing the former restriction against overlapping active records (BR-19 removed). Each record still describes a single space. |
-| equipped_with | Binary | Unchanged | quantity | Space | Facility | A space is equipped with various facilities; a facility may be available in multiple spaces |
-| assigned_to | Binary | Unchanged | — | User | Maintenance Record | A facility staff member is assigned to handle a specific maintenance record |
-
-### Relationship Classification
-
-| Relationship | Classification | Justification |
-| ------------ | -------------- | ------------- |
-| submits | Non-identifying | Both User and Booking possess independent identity. |
-| reserves | Non-identifying | Both Booking and Space possess independent identity. |
-| makes | Non-identifying | Both User and Approval possess independent identity. |
-| reviews | Non-identifying | Both Approval and Booking possess independent identity. |
-| conducts | Non-identifying | Both User and Session possess independent identity. |
-| tracks | Non-identifying | Both Session and Booking possess independent identity. |
-| reports | Non-identifying | Both User and Maintenance Record possess independent identity. |
-| pertains_to | Non-identifying | Both Maintenance Record and Space possess independent identity. |
-| equipped_with | Non-identifying | Both Space and Facility possess independent identity. |
-| assigned_to | Non-identifying | Both User and Maintenance Record possess independent identity. |
-
----
-
-## 3.4 Cardinality and Participation Summary
+### 2.4 Cardinality and Participation Summary (updated)
 
 | Relationship | Source Cardinality | Source Participation | Target Cardinality | Target Participation |
 | ------------ | ----------------- | ------------------- | ----------------- | -------------------- |
@@ -181,15 +86,11 @@ No entity is added or removed (08 §3: "no new business entity is explicitly req
 | conducts | 1 | Partial | N | Total |
 | tracks | 1 | Total | 1 | Partial |
 | reports | 1 | Partial | N | Total |
-| pertains_to | N | Total | 1 | Partial |
+| pertains_to | N (unchanged; a space may now hold several **simultaneously active** records, RC-03) | Total | 1 | Partial |
 | equipped_with | M | Partial | N | Partial |
 | assigned_to | 1 | Partial | N | Total |
 
-Cardinalities and participation constraints are unchanged from Phase 1. The semantic changes introduced by RC-01, RC-02, RC-03, and RC-07 concern the *meaning and validity conditions* of `reserves` and `pertains_to` (Section 3.3), not their cardinalities.
-
----
-
-## 3.5 Updated Conceptual ERD Diagram
+### 2.5 Updated Conceptual ERD Diagram
 
 ```mermaid
 flowchart LR
@@ -285,7 +186,7 @@ A_M_start((start_time))
 A_M_comp((completion_time))
 A_M_status((status))
 A_M_note((result_note))
-A_M_level((impact_level)) %% NEW - RC-01
+A_M_level((impact_level)) %% NEW - RC-01, RC-04
 
 %% =========================
 %% Relationships
@@ -420,33 +321,31 @@ E_User -- "1" --- R_assigned
 R_assigned -- "N" --- E_MaintRec
 ```
 
----
+### 2.6 ERD Validation (updated)
 
-## 3.6 Updated ERD Validation
-
-### Entity Coverage
+#### Entity Coverage
 
 * [X] Every accepted entity appears in the ERD.
-* [X] No new entity was introduced beyond those justified by the requirement changes (08 §3: none required).
 * [X] No rejected candidate appears as an entity.
+* [X] No new entity introduced (RC-01..RC-08 operate on existing entities only).
 
-### Attribute Coverage
+#### Attribute Coverage
 
-* [X] Every major attribute appears in the ERD, including the two new attributes (`impact_level` RC-01, `advisory_acknowledgement` RC-02).
-* [X] Subattributes of composite attribute are represented (full_name).
-* [X] RC-05's "affected approved bookings" and RC-08's reports are derived concepts and correctly appear only as business rules (BR-48, RC-08), not as stored constructs (08 §4 note, A-05).
+* [X] `impact_level` (RC-01, RC-04) appears on Maintenance Record.
+* [X] `advisory_acknowledgement` (RC-02) appears on Booking.
+* [X] All Phase 1 attributes retained.
 
-### Relationship Coverage
+#### Relationship Coverage
 
-* [X] Every relationship appears in the ERD.
+* [X] Every relationship appears in the ERD (structure unchanged).
 * [X] Every relationship includes cardinality information.
-* [X] No relationship was added or removed; modified relationships (`reserves`, `pertains_to`) retain their cardinalities.
+* [X] Semantics of `pertains_to` (RC-03) and `reserves` (RC-02, RC-07) updated and documented.
 
-### Participation Coverage
+#### Participation Coverage
 
-* [X] Participation constraints are documented where known and unchanged from Phase 1.
+* [X] Participation constraints documented for all relationships.
 
-### Conceptual Modeling Compliance
+#### Conceptual Modeling Compliance
 
 * [X] No primary keys shown.
 * [X] No foreign keys shown.
@@ -454,202 +353,165 @@ R_assigned -- "N" --- E_MaintRec
 * [X] No SQL concepts shown.
 * [X] Chen notation semantics preserved.
 
-### Diagram Validation
+#### Diagram Validation
 
 * [X] Mermaid syntax is valid.
 * [X] Mermaid Flowchart notation is used.
 * [X] Mermaid ERD notation is not used.
 
+### 2.7 Updated Assumptions (ERD level)
+
+| ID | Assumption |
+| -- | ---------- |
+| ERD-A01 | All entities remain Strong with independent identity (unchanged). |
+| ERD-A02 | User.full_name remains Composite with first_name / last_name subattributes (unchanged). |
+| ERD-A03 | All relationships remain Non-identifying (unchanged). |
+| ERD-A04 | No Derived attributes in the model (unchanged). |
+| ERD-A05 | No Multivalued attributes in the model (unchanged). |
+| ERD-A06 | `quantity` remains the only relationship attribute (unchanged). |
+| ERD-A07 | Cardinality labels use simplified Chen notation (unchanged). |
+| ERD-A08 | **NEW:** The impact level is an attribute of the Maintenance Record entity, not a separate entity — it describes a property of each maintenance record and does not require independent storage or lifecycle. |
+| ERD-A09 | **NEW:** The advisory acknowledgement is a simple attribute of Booking; its exact capture mechanism is a later-stage concern (A-03, Q-02 in `08-req-change-analysis-G7.md`). |
+| ERD-A10 | **NEW:** No new relationship is introduced for the advisory notification obligation — the relationship between Booking and Maintenance Record is derived at query time via the space and time period (A-06, Q-05 in `08-req-change-analysis-G7.md`). |
+
 ---
 
-# Part B — Updated Relational Schema
+## 3. Updated Logical Database Design
 
-## 4.1 Mapping Inventory
+### 3.1 Mapping Inventory (updated)
 
-### Entities
+#### Entities
 
-| Entity | Type | Identifier | Change |
-| ------ | ---- | ---------- | ------ |
-| User | Strong | user_id | Unchanged |
-| Space | Strong | space_code | Unchanged |
-| Facility | Strong | facility_id | Unchanged |
-| Booking | Strong | booking_id | Modified (new attribute) |
-| Approval | Strong | approval_id | Unchanged |
-| Session | Strong | session_id | Unchanged |
-| Maintenance Record | Strong | maintenance_id | Modified (new attribute) |
+| Entity | Type | Identifier |
+|--------|------|------------|
+| User | Strong | user_id |
+| Space | Strong | space_code |
+| Facility | Strong | facility_id |
+| Booking | Strong | booking_id |
+| Approval | Strong | approval_id |
+| Session | Strong | session_id |
+| Maintenance Record | Strong | maintenance_id |
 
-### Relationships
+#### Relationships
 
 | Relationship | Cardinality | Attributes | Change |
-| ------------ | ----------- | ---------- | ------ |
-| submits | 1:N | — | Unchanged |
-| reserves | N:1 | — | Semantics modified (RC-02, RC-07) |
-| makes | 1:N | — | Unchanged |
-| reviews | 1:1 | — | Unchanged |
-| conducts | 1:N | — | Unchanged |
-| tracks | 1:1 | — | Unchanged |
-| reports | 1:N | — | Unchanged |
-| pertains_to | N:1 | — | Semantics modified (RC-01, RC-03) |
-| equipped_with | M:N | quantity | Unchanged |
-| assigned_to | 1:N | — | Unchanged |
+|--------------|-------------|------------|--------|
+| submits | 1:N | - | unchanged |
+| reserves | N:1 | - | semantics modified (RC-02, RC-07) |
+| makes | 1:N | - | unchanged |
+| reviews | 1:1 | - | unchanged |
+| conducts | 1:N | - | unchanged |
+| tracks | 1:1 | - | unchanged |
+| reports | 1:N | - | unchanged |
+| pertains_to | N:1 | - | semantics modified (RC-01, RC-03) |
+| equipped_with | M:N | quantity | unchanged |
+| assigned_to | 1:N | - | unchanged |
 
-### Special Constructs
+#### Special Constructs
 
-* Weak entities: none.
-* Multivalued attributes: none.
-* Composite attributes: User.full_name → (first_name, last_name) — unchanged.
-* Recursive relationships: none.
-* Specialization structures: none.
+* Weak entities: None (unchanged).
+* Multivalued attributes: None (unchanged).
+* Composite attributes: User.full_name → first_name, last_name (unchanged).
+* Recursive relationships: None (unchanged).
+* Specialization structures: None (unchanged).
 
----
+### 3.2 Entity Mapping (unchanged)
 
-## 4.2 Entity Mapping
+| Entity | Relation | PK | Candidate Keys |
+|--------|----------|----|----------------|
+| User | User | user_id | email |
+| Space | Space | space_code | (building, floor, room_number) |
+| Facility | Facility | facility_id | facility_name |
+| Booking | Booking | booking_id | - |
+| Approval | Approval | approval_id | - |
+| Session | Session | session_id | - |
+| Maintenance Record | Maintenance_Record | maintenance_id | - |
 
-All 7 strong entities map to relations with their own simple primary keys, unchanged from Phase 1 (03 §2). The two design changes in this stage are attribute-level and are captured in Section 4.3. No new relation is introduced and no relation is removed.
+No mapping decisions change: all entities remain strong, `full_name` stays decomposed, no derived attributes are stored.
 
----
+### 3.3 Attribute Catalog (updated)
 
-## 4.3 Updated Attribute Catalog
+New rows are marked **NEW**; all other rows are unchanged from Phase 1.
 
-Logical domains per Rule 14. "Conditional" nullability means the attribute is NULL until the lifecycle stage that requires it. The `Change` column marks attributes affected by RC-01..RC-08; all other attributes are unchanged from Phase 1.
+| Relation | Attribute | Logical Domain | Nullable | Allowed Values / Range | Default | Notes |
+|----------|-----------|----------------|----------|------------------------|---------|------|
+| Booking | advisory_acknowledged | Boolean | Conditional | true, false | — | **NEW (RC-02, BR-46).** Required when the space has at least one active advisory maintenance record overlapping the requested period at booking time (BR-45); NULL when no advisory was active at booking time. Records that the requester was informed of all active advisories. |
+| Maintenance_Record | impact_level | Enumeration | No | out_of_service, advisory | — | **NEW (RC-01, BR-42).** Severity with respect to space usability. Every maintenance record has exactly one impact level; may be escalated or downgraded while the record is open (RC-04, BR-47). |
 
-| Relation | Attribute | Logical Domain | Nullable | Allowed Values / Range | Default | Change | Notes |
-| -------- | --------- | -------------- | -------- | ---------------------- | ------- | ------ | ----- |
-| User | user_id | Identifier | No | — | — | Unchanged | Primary key |
-| User | first_name | String(100) | No | — | — | Unchanged | Component of full_name (Rule 8) |
-| User | last_name | String(100) | No | — | — | Unchanged | Component of full_name (Rule 8) |
-| User | email | Email | No | University email pattern | — | Unchanged | Candidate key (BR-01) |
-| User | phone_number | Phone | Yes | — | — | Unchanged | |
-| User | role | Enumeration | No | student, lecturer, teaching_assistant, facility_staff, department_administrator, facility_manager | — | Unchanged | BR-02 |
-| User | department | String(100) | Yes | — | — | Unchanged | |
-| User | account_status | Enumeration | No | active, suspended | active | Unchanged | Inferred default per BR-20 |
-| Space | space_code | Identifier | No | — | — | Unchanged | Primary key |
-| Space | space_name | String(200) | No | — | — | Unchanged | |
-| Space | space_type | Enumeration | No | auditorium, classroom, computer_laboratory, project_laboratory, meeting_room, student_workspace | — | Unchanged | Instant booking eligibility per usage policy (BR-49) is evaluated against this attribute; exact eligible set open (Q-01) |
-| Space | building | String(100) | No | — | — | Unchanged | Part of candidate key |
-| Space | floor | String(10) | No | — | — | Unchanged | Modeled as string (LD-05) |
-| Space | room_number | String(50) | No | — | — | Unchanged | Part of candidate key |
-| Space | capacity | Integer | No | >= 1 | — | Unchanged | Constrains expected_participants (BR-40) |
-| Space | status | Enumeration | No | available, in_use, under_maintenance, temporarily_closed, retired | available | Unchanged | BR-03; unbookable statuses per BR-32; interplay with maintenance impact levels refined (RC-01) |
-| Space | usage_policy | String(1000) | Yes | — | — | Unchanged | Conditions for instant booking (BR-49) |
-| Facility | facility_id | Identifier | No | — | — | Unchanged | Primary key |
-| Facility | facility_name | String(100) | No | — | — | Unchanged | Candidate key |
-| Facility | description | String(500) | Yes | — | — | Unchanged | |
-| Booking | booking_id | Identifier | No | — | — | Unchanged | Primary key |
-| Booking | requester_id | Identifier | No | — | — | Unchanged | FK → User(user_id); role name (LD-01) |
-| Booking | space_code | Identifier | No | — | — | Unchanged | FK → Space(space_code); availability check now impact-level aware (BR-44, BR-45) |
-| Booking | requested_start_time | Timestamp | No | In the future (BR-36) | — | Unchanged | |
-| Booking | requested_end_time | Timestamp | No | After requested_start_time (BR-35) | — | Unchanged | |
-| Booking | purpose | Enumeration | No | lecture, examination, seminar, workshop, meeting, student_activity, administrative_event | — | Unchanged | BR-04 |
-| Booking | expected_participants | Integer | No | >= 1 and <= space capacity | — | Unchanged | BR-40 |
-| Booking | status | Enumeration | No | pending, approved, rejected, cancelled, checked_in, completed, no_show | pending | Unchanged | Lifecycle extended by instant approval path (BR-49) |
-| Booking | advisory_acknowledgement | Boolean | Conditional | TRUE / FALSE | NULL | **New (RC-02)** | Records that the requester was informed of all active advisories on the space at booking time and acknowledged them (BR-45, BR-46). NULL when no advisory was active on the space at booking time; required (TRUE) when one or more advisories were active (ULD-02) |
-| Approval | approval_id | Identifier | No | — | — | Unchanged | Primary key |
-| Approval | booking_id | Identifier | No | — | — | Unchanged | FK → Booking(booking_id); UNIQUE enforces 1:1 reviews |
-| Approval | approver_id | Identifier | No | — | — | Unchanged | FK → User(user_id); for instant bookings this is a designated system account (ULD-01) |
-| Approval | decision | Enumeration | No | approved, rejected | — | Unchanged | Instant bookings produce decision = approved automatically (BR-49) |
-| Approval | decision_time | Timestamp | No | Before booking requested_start_time (BR-37) | — | Unchanged | |
-| Approval | decision_note | String(500) | Yes | — | — | Unchanged | |
-| Approval | rejection_reason | String(500) | Conditional | — | — | Unchanged | Required when decision = rejected (BR-29, BR-41) |
-| Session | session_id | Identifier | No | — | — | Unchanged | Primary key |
-| Session | booking_id | Identifier | No | — | — | Unchanged | FK → Booking(booking_id); UNIQUE enforces 1:1 tracks |
-| Session | conductor_id | Identifier | No | — | — | Unchanged | FK → User(user_id); facility staff only (BR-22) |
-| Session | actual_start_time | Timestamp | Conditional | Before actual_end_time (BR-38) | — | Unchanged | Required at check-in (BR-30) |
-| Session | actual_end_time | Timestamp | Conditional | After actual_start_time (BR-38) | — | Unchanged | Required at completion (BR-31) |
-| Session | initial_condition | String(500) | Conditional | — | — | Unchanged | Required at check-in (BR-30) |
-| Session | final_condition | String(500) | Conditional | — | — | Unchanged | Required at completion (BR-31) |
-| Session | usage_notes | String(1000) | Conditional | — | — | Unchanged | Required at completion (BR-31) |
-| Maintenance_Record | maintenance_id | Identifier | No | — | — | Unchanged | Primary key |
-| Maintenance_Record | reporter_id | Identifier | No | — | — | Unchanged | FK → User(user_id); may differ from assigned_staff_id (BR-18) |
-| Maintenance_Record | space_code | Identifier | No | — | — | Unchanged | FK → Space(space_code); multiple active records per space now allowed (BR-43) |
-| Maintenance_Record | assigned_staff_id | Identifier | No | — | — | Unchanged | FK → User(user_id); facility staff only (BR-23) |
-| Maintenance_Record | problem_description | String(1000) | No | — | — | Unchanged | |
-| Maintenance_Record | start_time | Timestamp | No | — | — | Unchanged | When the issue is reported |
-| Maintenance_Record | completion_time | Timestamp | Conditional | After start_time (BR-39) | — | Unchanged | Required when status = completed (BR-34) |
-| Maintenance_Record | status | Enumeration | No | reported, in_progress, completed | reported | Unchanged | Level changes only while open (BR-47) |
-| Maintenance_Record | result_note | String(1000) | Conditional | — | — | Unchanged | Required when status = completed (BR-34) |
-| Maintenance_Record | impact_level | Enumeration | No | advisory, out_of_service | advisory | **New (RC-01)** | BR-42. Severity with respect to space usability: out_of_service blocks overlapping bookings (BR-44); advisory permits booking with notification/acknowledgement (BR-45, BR-46). Single-valued current level; may be escalated/downgraded while the record is open (BR-47). Default inferred (ULD-03) |
-| Space_Facility | space_code | Identifier | No | — | — | Unchanged | PK part; FK → Space(space_code) |
-| Space_Facility | facility_id | Identifier | No | — | — | Unchanged | PK part; FK → Facility(facility_id) |
-| Space_Facility | quantity | Integer | No | >= 1 | — | Unchanged | Relationship attribute of equipped_with |
+Note: `Booking.advisory_acknowledged` is nullable in the schema to allow bookings made when no advisories were active; its conditional requirement is enforced by the implementation layer per BR-45/BR-46. `Maintenance_Record.impact_level` is NOT NULL per BR-42.
 
-Total: 57 attributes across 8 relations (55 Phase 1 + 2 new). Candidate keys are unchanged (User.email, Space (building, floor, room_number), Facility.facility_name).
+### 3.4 Relationship Mapping (unchanged structure)
 
----
+All relationship mapping strategies from Phase 1 are retained unchanged:
 
-## 4.4 Relationship Mapping
+* 1:1 `reviews` and `tracks`: FK with UNIQUE constraint on the total-participation side (Booking side).
+* 1:N relationships: FK on the N-side relation (unchanged placement).
+* M:N `equipped_with`: Space_Facility associative relation (unchanged).
 
-All mapping strategies are unchanged from Phase 1 (03 §4); no relationship mapping changes because no relationship's cardinality or degree changed:
+The semantic changes of RC-02, RC-03, RC-07 affect constraint enforcement, not FK placement; they are captured in Section 3.7.
 
-* 1:1 `reviews`, `tracks` — FK + UNIQUE in Approval / Session (Rule 3).
-* 1:N `submits`, `reserves`, `makes`, `conducts`, `reports`, `pertains_to`, `assigned_to` — FK on N-side (Rule 4).
-* M:N `equipped_with` — associative relation Space_Facility (Rule 5).
+### 3.5 Foreign Key Analysis (unchanged)
 
-Semantic changes to `reserves` and `pertains_to` (Sections 3.3, 4.1) are enforced through business rules (Section 4.6) rather than through FK structure.
+| Relation | Foreign Key | References | Change |
+|----------|------------|------------|--------|
+| Booking | requester_id | User(user_id) | unchanged |
+| Booking | space_code | Space(space_code) | unchanged |
+| Approval | booking_id (UNIQUE) | Booking(booking_id) | unchanged |
+| Approval | approver_id | User(user_id) | unchanged |
+| Session | booking_id (UNIQUE) | Booking(booking_id) | unchanged |
+| Session | conductor_id | User(user_id) | unchanged |
+| Maintenance_Record | reporter_id | User(user_id) | unchanged |
+| Maintenance_Record | space_code | Space(space_code) | unchanged |
+| Maintenance_Record | assigned_staff_id | User(user_id) | unchanged |
+| Space_Facility | space_code | Space(space_code) | unchanged |
+| Space_Facility | facility_id | Facility(facility_id) | unchanged |
 
----
+### 3.6 Candidate Key Analysis (unchanged)
 
-## 4.5 Foreign Key Analysis
+| Relation | Candidate Key | Justification |
+|----------|--------------|---------------|
+| User | email | University email must be unique per user (BR-01). |
+| Space | (building, floor, room_number) | Physical location combination must uniquely identify a space. |
+| Facility | facility_name | Facility names are unique descriptors of equipment types. |
 
-All 11 FK references are unchanged from Phase 1 (03 §6):
+### 3.7 Integrity Constraint Analysis (updated)
 
-| Relation | Foreign Key | References |
-| -------- | ----------- | ---------- |
-| Booking | requester_id | User(user_id) |
-| Booking | space_code | Space(space_code) |
-| Approval | booking_id (UNIQUE) | Booking(booking_id) |
-| Approval | approver_id | User(user_id) |
-| Session | booking_id (UNIQUE) | Booking(booking_id) |
-| Session | conductor_id | User(user_id) |
-| Maintenance_Record | reporter_id | User(user_id) |
-| Maintenance_Record | space_code | Space(space_code) |
-| Maintenance_Record | assigned_staff_id | User(user_id) |
-| Space_Facility | space_code | Space(space_code) |
-| Space_Facility | facility_id | Facility(facility_id) |
+#### Entity Integrity (unchanged)
+
+Every relation keeps its NOT NULL, UNIQUE primary key: User(user_id), Space(space_code), Facility(facility_id), Booking(booking_id), Approval(approval_id), Session(session_id), Maintenance_Record(maintenance_id), Space_Facility(space_code, facility_id).
+
+#### Referential Integrity (unchanged)
+
+All 11 FK constraints from Phase 1 are retained unchanged.
+
+#### Business Key Constraints (unchanged)
+
+User.email, Space(building, floor, room_number), Facility.facility_name — UNIQUE constraints retained.
+
+#### Cross-Relation Business Constraints (updated)
+
+| ID | Constraint | Change | Enforcement Note |
+|----|-----------|--------|------------------|
+| BR-13 | A session may only exist for a booking with status approved. | Unchanged | Cross-relation (Session ↔ Booking.status); verified when a session is created. |
+| BR-14 | The same space cannot have two approved bookings with overlapping time periods. | **Modified (RC-07)** — applies to both instant and staff-approved bookings, and must hold under concurrent operations (BR-50). | Temporal range-overlap check on (space_code, requested_start_time, requested_end_time) at booking submission and approval; concurrency enforcement is a Phase 2 implementation-stage concern. |
+| BR-19 | A space should not have overlapping active (reported/in_progress) maintenance records. | **Removed (RC-03)** — superseded by BR-43; no overlap constraint remains on active maintenance records. | Removed from the constraint set. |
+| BR-28 | An approved booking requires an associated approval record with decision approved. | Unchanged | Cross-relation (Booking ↔ Approval). Instant bookings (RC-06) obtain this approval record automatically at submission (BR-49) — an implementation-stage behavior, no schema change. |
+| BR-29 | A rejected booking requires an associated approval record with decision rejected and a rejection reason. | Unchanged | rejection_reason conditional nullability retained. |
+| BR-32 | A space with status under_maintenance, temporarily_closed, or retired cannot be booked. | **Modified (RC-01, RC-02)** — the blanket maintenance-blocking behavior is replaced by BR-44/BR-45; status-based blocking for temporarily_closed / retired is retained. | Checked at booking submission. |
+| BR-33 | A maintenance record with status reported or in_progress prevents the related space from being booked. | **Modified (RC-01, RC-02)** — replaced by impact-level-based blocking (BR-44, BR-45). | Checked at booking submission. |
+| BR-40 | Expected participants must not exceed the reserved space capacity. | Unchanged | Verified at booking submission. |
+| BR-42 | Each maintenance record has an impact level: out_of_service or advisory. | **NEW (RC-01)** | Declarative: NOT NULL + CHECK (impact_level IN ('out_of_service','advisory')). |
+| BR-44 | A space with an active out-of-service maintenance record cannot be booked for any time period overlapping the maintenance period. | **NEW (RC-01)** | Cross-relation temporal constraint (Booking ↔ Maintenance_Record.space_code, impact_level, start_time, completion_time); range-overlap check against open out-of-service records at booking submission. |
+| BR-45 | A space with only active advisory maintenance records may be booked; the requester must be notified of all active advisories at booking time. | **NEW (RC-02)** | Implementation-layer obligation tied to the booking transaction; no declarative constraint. |
+| BR-46 | The booking must record the requester's acknowledgement that they were informed of the active advisories. | **NEW (RC-02)** | Implementation-layer check: advisory_acknowledged must be present and true when advisories are active (conditional nullability in Section 3.3). |
+| BR-47 | The impact level of an open maintenance record may be escalated (advisory → out-of-service) or downgraded. | **NEW (RC-04)** | Lifecycle constraint on Maintenance_Record.impact_level while status is reported/in_progress; single consistent current value (CC-05) is a Phase 2 concurrency concern. |
+| BR-48 | When advisory maintenance is escalated to out-of-service, all approved bookings overlapping the maintenance period must be identifiable. | **NEW (RC-05)** | Derived query over Booking, Space, Maintenance_Record; satisfiable with the updated schema (space_code + times + impact_level) — no new storage required (A-05). |
+| BR-49 | For selected space types, booking requests satisfying the usage policy are approved automatically at submission time. | **NEW (RC-06)** | Process rule; uses existing Booking.status and Approval relations. Exact eligibility is open (Q-01, A-02) and belongs to the implementation stage. |
+| BR-50 | The no-overlapping-approved-bookings rule (BR-14) must hold regardless of booking path and concurrent operations. | **NEW (RC-07)** | Concurrency invariant; enforcement mechanism (transactions, isolation levels, locking) is a Phase 2 implementation-stage concern, not a schema change. |
 
 ---
 
-## 4.6 Integrity Constraints
-
-### Entity Integrity
-
-Primary keys are unchanged for all 8 relations (03 §8). No key structure changes in this stage.
-
-### Referential Integrity
-
-All FK constraints are unchanged (03 §8). Nullability of the two new attributes is captured in Section 4.3.
-
-### Business Key Constraints
-
-Unchanged: User.email, Space (building, floor, room_number), Facility.facility_name.
-
-### Cross-Relation Business Constraints
-
-Logical constraints that span multiple relations (or involve temporal conditions within one relation) are documented here as application-level constraints to be enforced by the implementation layer.
-
-| ID | Status | Constraint | Enforcement Note |
-| -- | ------ | ---------- | ---------------- |
-| BR-13 | Unchanged | A session may only exist for a booking with status approved. | Cross-relation (Session ↔ Booking.status); verified when a session is created. |
-| BR-14 | Modified (RC-07) | The same space cannot have two approved bookings with overlapping time periods. | Temporal constraint within Booking; extended by BR-50 to hold under simultaneous operations for both booking paths. |
-| BR-19 | Removed (RC-03) | ~~A space should not have overlapping active maintenance records.~~ | Superseded by BR-43; no overlap restriction applies to active maintenance records anymore. |
-| BR-28 | Unchanged | An approved booking requires an associated approval record with decision approved. | Cross-relation (Booking ↔ Approval); preserved for instant bookings via an automatic Approval record (ULD-01). |
-| BR-29 | Unchanged | A rejected booking requires an associated approval record with decision rejected and a rejection reason. | Cross-relation (Booking ↔ Approval). |
-| BR-32 | Modified (RC-01, RC-02) | A space with status under_maintenance, temporarily_closed, or retired cannot be booked. | Cross-relation (Booking ↔ Space.status); the maintenance-related blocking behavior is refined by BR-33/BR-44 based on impact level. |
-| BR-33 | Modified (RC-01, RC-02) | A maintenance record prevents booking only when it is active (reported/in_progress) with impact level out_of_service, for overlapping periods. | Cross-relation (Booking ↔ Maintenance_Record), temporal; replaces the Phase 1 blanket "any open maintenance blocks" behavior; precisely restated as BR-44. |
-| BR-40 | Unchanged | Expected participants must not exceed the reserved space capacity. | Cross-relation (Booking.expected_participants ↔ Space.capacity); verified at booking submission. |
-| BR-42 | New (RC-01) | Each maintenance record has an impact level: out_of_service or advisory. | Declarative: NOT NULL + CHECK on Maintenance_Record.impact_level (Section 4.3). |
-| BR-43 | New (RC-03) | A space may have several active maintenance records at the same time, with different impact levels. | Negative constraint: removal of the former overlap restriction (BR-19). No constraint is created. |
-| BR-44 | New (RC-01) | A space with an active out_of_service maintenance record cannot be booked for any time period overlapping the maintenance period. | Cross-relation (Booking ↔ Maintenance_Record), temporal; checked at booking submission (booking availability). |
-| BR-45 | New (RC-02) | A space with only active advisory maintenance records may be booked; the requester must be notified of all active advisories at booking time. | Booking-time behavior (Space ↔ Maintenance_Record); notification obligation enforced by the application layer (Assumption A-06 from 08). |
-| BR-46 | New (RC-02) | The booking must record the requester's acknowledgement that they were informed of the active advisories. | Declarative + application: conditional nullability of Booking.advisory_acknowledgement (TRUE required when advisories active at booking time, BR-45). |
-| BR-47 | New (RC-04) | The impact level of an open maintenance record may be escalated (advisory → out_of_service) or downgraded; level changes apply only while the record is open. | Lifecycle rule on Maintenance_Record.status / impact_level; application-enforced. |
-| BR-48 | New (RC-05) | When advisory maintenance is escalated to out_of_service, all approved bookings overlapping the maintenance period must be identifiable so staff can contact the requesters. | Derived/reporting query over Booking and Maintenance_Record; no stored construct (UERD-04). |
-| BR-49 | New (RC-06) | For selected space types, booking requests satisfying the usage policy are approved automatically at submission time. | Approval lifecycle rule; realized as an automatic Approval record with decision = approved (ULD-01); eligibility depends on Space.space_type and Space.usage_policy (Q-01). |
-| BR-50 | New (RC-07) | The no-overlapping-approved-bookings rule (BR-14) must hold regardless of whether bookings are created through instant booking or staff approval, and even when multiple users and staff operate concurrently. | Concurrency invariant; enforcement delegated to the concurrency implementation stage (`outputs/11-concurrency-design-G7.md`, `outputs/12-concurrency-implementation-G7.sql`). No additional schema structure required. |
-
----
-
-## 4.7 Updated Relational Schema Diagram
+## 4. Updated Relational Schema Diagram
 
 ```mermaid
 erDiagram
@@ -704,7 +566,7 @@ erDiagram
         enumeration purpose
         integer expected_participants
         enumeration status
-        boolean advisory_acknowledgement %% NEW - RC-02
+        boolean advisory_acknowledged 
     }
 
     Approval {
@@ -738,131 +600,111 @@ erDiagram
         timestamp completion_time
         enumeration status
         string result_note
-        enumeration impact_level %% NEW - RC-01
+        enumeration impact_level 
     }
 
     Space_Facility {
         identifier space_code PK, FK
-        identifier facility_id FK
+        identifier facility_id PK, FK
         integer quantity
     }
 ```
 
-The diagram is the Phase 1 schema plus the two new attributes. All 11 FK references appear as relationships; `reviews` and `tracks` are 1:N with UNIQUE semantics on the FK (unchanged from Phase 1).
-
 ---
 
-## 4.8 Mapping Completeness Verification
+## 5. Mapping Completeness Verification (updated)
 
 | Criterion | Status |
-| --------- | ------ |
-| Every entity mapped to a relation | ✓ All 7 entities mapped; no entities added or removed |
-| Every attribute mapped | ✓ All 57 attributes mapped across 8 relations; 2 new attributes added |
-| Every attribute has an identified logical domain | ✓ Attribute Catalog (Section 4.3) |
-| Enumerated domains documented | ✓ All enumeration value sets recorded, including the new `impact_level` domain (BR-42) |
-| Value ranges documented | ✓ Unchanged from Phase 1; new boolean domain documented |
-| Nullable attributes identified | ✓ Conditional nullability of `advisory_acknowledgement` documented (BR-45, BR-46) |
-| Every identifier preserved | ✓ All PKs unchanged |
-| Every relationship represented | ✓ All 10 relationships represented; none added or removed |
-| 1:1 relationships mapped correctly | ✓ reviews and tracks unchanged (FK + UNIQUE) |
-| 1:N relationships mapped correctly | ✓ All 1:N mappings unchanged |
-| M:N relationships mapped correctly | ✓ equipped_with unchanged via Space_Facility |
+|-----------|--------|
+| Every entity mapped to a relation | ✓ All 7 entities mapped (all strong) |
+| Every attribute mapped | ✓ All Phase 1 attributes plus new `impact_level` (RC-01) and `advisory_acknowledged` (RC-02) |
+| Every attribute has an identified logical domain | ✓ Attribute catalog (Section 3.3) covers all 57 attributes across 8 relations |
+| Enumerated domains documented | ✓ impact_level values out_of_service, advisory documented (BR-42) |
+| Value ranges documented | ✓ capacity >= 1; expected_participants >= 1; quantity >= 1; temporal ordering rules retained |
+| Nullable attributes identified | ✓ advisory_acknowledged conditional nullability documented (BR-45/BR-46) |
+| Every identifier preserved | ✓ All PKs defined; unchanged |
+| Every relationship represented | ✓ All 10 relationships represented; 2 with updated semantics |
+| 1:1 relationships mapped correctly | ✓ reviews and tracks via FK + UNIQUE (unchanged) |
+| 1:N relationships mapped correctly | ✓ All 1:N relationships via FK on N-side (unchanged) |
+| M:N relationships mapped correctly | ✓ equipped_with via Space_Facility (unchanged) |
 | N-ary relationships mapped correctly | ✓ None identified |
-| Composite attributes decomposed | ✓ full_name unchanged |
+| Composite attributes decomposed | ✓ full_name decomposed (unchanged) |
 | Multivalued attributes resolved | ✓ None identified |
 | Weak entities mapped correctly | ✓ None identified |
 | Recursive relationships mapped | ✓ None identified |
-| Relationship attributes preserved | ✓ quantity preserved in Space_Facility |
-| Foreign keys identified | ✓ All 11 FK references unchanged |
-| Candidate keys documented | ✓ 3 candidate keys unchanged |
-| Referential integrity represented | ✓ All FK constraints unchanged |
-| Cross-relation business constraints documented | ✓ 16 constraints recorded: 5 unchanged (BR-13, BR-28, BR-29, BR-40, BR-32/BR-33 as modified), 1 removed (BR-19), 9 new (BR-42 .. BR-50), 3 modified (BR-14, BR-32, BR-33) |
-| All requirement changes represented | ✓ RC-01 .. RC-08 traced to design elements (Section 7) |
-| No implementation-specific details | ✓ No SQL, no DBMS-specific syntax |
-| Logical schema internally consistent | ✓ All references verified; bidirectional traceability maintained with Phase 1 artifacts |
+| Relationship attributes preserved | ✓ quantity preserved (unchanged) |
+| Foreign keys identified | ✓ All 11 FK references documented (unchanged) |
+| Candidate keys documented | ✓ 3 candidate keys (unchanged) |
+| Referential integrity represented | ✓ All FK constraints documented (unchanged) |
+| Cross-relation business constraints documented | ✓ Updated: BR-14 modified, BR-19 removed, BR-32/BR-33 modified, BR-42/BR-44/BR-45/BR-46/BR-47/BR-48/BR-49/BR-50 added |
+| No implementation-specific details | ✓ No SQL, no DBMS-specific syntax; concurrency and notification mechanisms deferred to implementation stages |
+| Logical schema internally consistent | ✓ All references verified; traceability to RC-01..RC-08 maintained |
 
 ---
 
-# Part C — Design Change Log
+## 6. Rationale for Design Changes
 
-| Change ID | Design Element | Change | Rationale | Requirement |
-| --------- | -------------- | ------ | --------- | ----------- |
-| CD-01 | `Maintenance_Record.impact_level` (enumeration: advisory, out_of_service) | New attribute, NOT NULL, default advisory | The impact level is the business concept at the center of RC-01: it must be stored per record because it drives booking availability (BR-44) and notification obligations (BR-45). Modeled as a simple single-valued attribute (BR-42), consistent with the requirement-change analysis that introduced no new entity. | RC-01, RC-04 |
-| CD-02 | `Booking.advisory_acknowledgement` (boolean, conditional) | New attribute | RC-02 requires the acknowledgement to be "stored with the booking" (Assumption A-03 from 08). A boolean attribute on Booking is the minimal faithful representation: it records whether the requester was informed and acknowledged at booking time (BR-46). It is conditional — NULL when no advisories were active — because no acknowledgement is required when there is nothing to notify (BR-45). | RC-02 |
-| CD-03 | `pertains_to` semantics | Modified: multiple simultaneous active records per space | RC-03 supersedes BR-19; the relationship's cardinality (N:1) is unchanged, only the validity condition changes. No schema structure change is needed — the previous overlap restriction was an application rule, not a structural constraint. | RC-01, RC-03 |
-| CD-04 | `reserves` semantics | Modified: advisory-permitted booking; no-overlap rule extended | RC-02 makes booking possible over advisory maintenance when notified/acknowledged; RC-07 extends BR-14 to both booking paths under concurrency. Both are validity conditions on existing relationships, expressed via business rules (BR-45, BR-46, BR-50), not new structure. | RC-02, RC-07 |
-| CD-05 | Approval lifecycle for instant booking | No schema change; automatic Approval record (ULD-01) | RC-06 (BR-49) adds an auto-approval path. Representing it as an automatic Approval record with decision = approved preserves the Phase 1 invariant that every approved booking has an approval record (BR-28) and requires no new entity, attribute, or FK change. The exact eligibility rule remains open (Q-01). | RC-06 |
-| CD-06 | BR-32 / BR-33 refinement | Booking blocked only by active out_of_service maintenance for overlapping periods | The blanket "any active maintenance blocks booking" behavior (BR-33 Phase 1) is replaced by the impact-level-aware rule (BR-44). This is a rule change; the schema needs only the new `impact_level` attribute to support it. | RC-01, RC-02 |
-| CD-07 | Impact-level changes (escalation/downgrade) | Lifecycle rule on the current attribute value | RC-04 (BR-47) permits level changes while the record is open. The requirements do not require retaining change history, so the schema stores only the current value (UERD-02); escalation/downgrade updates it. | RC-04 |
-| CD-08 | Affected-bookings identification | Derived query, no schema change | RC-05 (BR-48) is a reporting-style query over already-stored Booking and Maintenance_Record data; per A-05 (08) reporting adds no new captured information. | RC-05 |
-| CD-09 | Concurrency invariants | No schema change; deferred to concurrency stage | RC-07 (BR-50) and the conflict analysis (08 §7, CC-01..CC-05) are enforcement concerns of the concurrency implementation stage; the logical schema provides the necessary structures (Booking status, impact_level, advisory_acknowledgement) but no further modeling constructs. | RC-07 |
+### 6.1 Maintenance Record impact_level (C-01)
 
----
+The requirement change RC-01 explicitly assigns each maintenance record an impact level; RC-04 makes the level mutable while the record is open. The level is an intrinsic property of each maintenance record, so it is modeled as a simple enumeration attribute of the existing entity (ERD-A08) rather than a new entity — it has no independent identity or lifecycle and its values (out_of_service, advisory) are fixed (A-01). It is NOT NULL because BR-42 requires every record to have a level. BR-47 (escalation/downgrade) requires no extra schema — it only constrains value changes over the record's lifecycle.
 
-# Part D — Traceability Matrix
+### 6.2 Booking advisory acknowledgement (C-02)
 
-| Requirement Change | ERD Element | Relational Schema Element | Business Rules |
-| ------------------ | ----------- | ------------------------- | -------------- |
-| RC-01 | Maintenance Record attribute `impact_level`; `pertains_to` semantics; Space booking availability | `Maintenance_Record.impact_level` (new) | BR-32 (M), BR-33 (M), BR-42 (N), BR-44 (N) |
-| RC-02 | Booking attribute `advisory_acknowledgement`; `reserves` semantics | `Booking.advisory_acknowledgement` (new) | BR-32 (M), BR-33 (M), BR-45 (N), BR-46 (N) |
-| RC-03 | `pertains_to` semantics | none (rule only) | BR-19 (R), BR-43 (N) |
-| RC-04 | Maintenance Record `impact_level` (mutable) | `Maintenance_Record.impact_level` | BR-47 (N) |
-| RC-05 | — (derived) | none | BR-48 (N) |
-| RC-06 | Booking lifecycle; Approval semantics (automatic decision) | `Approval` (behavior only, ULD-01) | BR-49 (N) |
-| RC-07 | `reserves` validity; no-overlap invariant | none (concurrency stage) | BR-14 (M), BR-50 (N) |
-| RC-08 | — (derived reports) | none | — |
+RC-02 requires the booking to carry the requester's acknowledgement of the active advisories. It is a property of the booking itself, so it is a simple boolean attribute of Booking (ERD-A09). It is conditionally nullable: when no advisory is active at booking time there is nothing to acknowledge (BR-45), but when advisories are active the field must be present and true (BR-46). The notification mechanism itself (A-06) and the acknowledgement capture process (Q-02) are outside this stage.
 
-Legend: N = new, M = modified, R = removed.
+### 6.3 Changed relationship semantics (C-03, C-04)
+
+Both changed relationships keep their Phase 1 structure — `pertains_to` remains 1:N with the FK in Maintenance_Record, and `reserves` remains N:1 with the FK in Booking — because RC-03 and RC-02 alter the *business rules* governing record multiplicity and booking eligibility, not the cardinalities or identity of the participating entities. Multiple active maintenance records per space (BR-43) require only the removal of the BR-19 overlap constraint; no new table or join is introduced.
+
+### 6.4 Changes requiring no schema modification
+
+| Requirement Change | Why no schema change |
+| ------------------ | -------------------- |
+| RC-05 (identify affected approved bookings) | Derived query over existing relations plus new impact_level (A-05). |
+| RC-06 (instant booking) | Process rule over existing Booking.status and Approval relations (A-02, Q-01). |
+| RC-07 / BR-50 (concurrency invariant) | Enforced by transactions/isolation at the implementation stage, not by schema. |
+| RC-08 (reporting) | All reports derive from existing history (A-05). |
 
 ---
 
-# Part E — Assumptions
+## 7. Traceability Summary
 
-## Conceptual (ERD) Assumptions
-
-| ID | Assumption | Justification |
-| -- | ---------- | ------------- |
-| UERD-01 | No new entity or relationship is introduced; all requirement changes are realized through attributes and business rules. | 08 §3 and §5 explicitly identify no required new entities or relationships. |
-| UERD-02 | The impact level of a maintenance record is represented by a single-valued current attribute; the history of escalation/downgrade changes (RC-04) is not stored. | The requirements (BR-47) require that the current level govern behavior; they do not require retaining level-change history. |
-| UERD-03 | `advisory_acknowledgement` is modeled as a boolean attribute of Booking. | RC-02 and 08 Assumption A-03: the acknowledgement is part of the booking's own business information. |
-| UERD-04 | "Affected approved bookings" (RC-05) and the new reports (RC-08) are derived queries over stored history; they introduce no new captured business information. | 08 Assumption A-05. |
-| UERD-05 | Instant booking (RC-06) does not alter the ERD structure: it is a property of the booking/approval lifecycle. | 08 §3/§4 introduce no entity or attribute for instant booking; eligibility is a policy condition (Q-01). |
-| UERD-06 | The two impact levels (advisory, out_of_service) are exhaustive. | 08 Assumption A-01. |
-
-## Logical (Relational) Assumptions
-
-| ID | Assumption | Justification |
-| -- | ---------- | ------------- |
-| ULD-01 | An instant booking (BR-49) is recorded as an automatic Approval record with decision = approved, attributed to a designated system user account. | Preserves the Phase 1 invariant BR-28 (every approved booking has an approval record) without schema structural change. The exact identity of the system account is pending Q-01/Q-07 resolution. |
-| ULD-02 | `Booking.advisory_acknowledgement` is conditionally nullable: NULL when no advisory maintenance was active on the space at booking time; TRUE required when one or more advisories were active. | Consistent with LD-07 conditional-nullability practice; BR-45/BR-46 require the acknowledgement only when advisories exist. |
-| ULD-03 | `Maintenance_Record.impact_level` defaults to advisory. | A reported issue is initially treated as advisory; escalation to out_of_service is a deliberate staff decision (BR-47). Inferred default, consistent with LD-06 practice. |
-| ULD-04 | BR-50 and the conflict invariants (08 §7, CC-01..CC-05) are enforced by the concurrency implementation stage; the logical schema contributes only the supporting structures (impact_level, advisory_acknowledgement). | 08 §7 explicitly defers mechanisms; this stage produces only the design foundation. |
-| ULD-05 | No candidate keys are added or removed; the two new attributes do not introduce keys. | Neither impact_level nor advisory_acknowledgement uniquely identifies occurrences. |
-| ULD-06 | Phase 1 logical assumptions LD-01 .. LD-08 continue to hold for all unchanged elements. | Preserve traceability to the Phase 1 design. |
+| Design Element | Requirement Change | Business Rule | Phase 1 Artifact Location |
+| -------------- | ------------------ | ------------- | ------------------------- |
+| Maintenance_Record.impact_level | RC-01, RC-04 | BR-42, BR-47 | 03-logical-design §3 (new) |
+| Booking.advisory_acknowledged | RC-02 | BR-45, BR-46 | 03-logical-design §3 (new) |
+| pertains_to semantics | RC-01, RC-03 | BR-43, BR-19 (removed) | 02-erd-design §3-4; 03-logical-design §4 |
+| reserves semantics | RC-02, RC-07 | BR-14, BR-44, BR-45, BR-50 | 02-erd-design §3-4; 03-logical-design §4 |
+| Booking availability constraints | RC-01, RC-02 | BR-32, BR-33 (modified), BR-44 | 03-logical-design §8 |
+| Escalation reporting | RC-05 | BR-48 | derived query (no schema) |
+| Instant booking | RC-06 | BR-49 | process rule (no schema) |
+| No-conflict invariant | RC-07 | BR-14 (modified), BR-50 | concurrency stage (no schema) |
+| New reports | RC-08 | — | derived queries (no schema) |
 
 ---
 
-# Part F — Open Questions
+## 8. Assumptions and Open Questions (updated)
 
-| ID | Question | Reason | From |
-| -- | -------- | ------ | ---- |
-| Q-01 | Which space types are eligible for instant booking, and what exactly does "satisfy the usage policy" require? | Required to scope BR-49 behavior precisely; affects whether Space.space_type / Space.usage_policy need further constraints. | 08 |
-| Q-02 | When a booking is created while advisories are active, how is the requester's acknowledgement confirmed? | RC-02 requires the acknowledgement be recorded but does not define how it is obtained. | 08 |
-| Q-03 | Can the impact level be downgraded below advisory, or is advisory the minimum? | The requirements only give the advisory → out_of_service escalation example. | 08 |
-| Q-04 | When maintenance is escalated to out_of_service and affected approved bookings are found, may those bookings be cancelled, or must staff only contact the requesters? | RC-05/BR-48 only require identifying affected bookings. | 08 |
-| Q-05 | How soon after an advisory is active must a booking-time notification capture it ("at booking time" boundary)? | Relevant for BR-45 enforcement and concurrency conflict CC-04. | 08 |
-| Q-06 | Is there a maximum number of simultaneous active maintenance records per space, or is it unlimited? | RC-03 removes the previous restriction without specifying an upper bound. | 08 |
-| Q-07 | What is the identity of the system user account that records automatic approvals for instant bookings (ULD-01)? | The schema requires approver_id NOT NULL; the designated account must be decided at implementation. | ULD-01 |
-| Q-08 | Must the history of impact-level changes (RC-04) be retained for auditing/reporting, or is the current level sufficient? | UERD-02 assumes no history is stored; a future requirement may reverse this. | UERD-02 |
+### Assumptions
 
----
+| ID | Assumption |
+| -- | ---------- |
+| LD-01..LD-08 | All Phase 1 logical-design assumptions retained unchanged (role-name FKs, no artificial keys, Space_Facility PK, strong Approval/Session, floor string, inferred defaults, conditional nullability, cross-relation constraints). |
+| ULD-01 | The two impact levels (out_of_service, advisory) are exhaustive (A-01 in `08-req-change-analysis-G7.md`). |
+| ULD-02 | `advisory_acknowledged` is conditionally nullable rather than always required, because bookings may be created when no advisory is active (BR-45); when advisories are active it must be true (BR-46). |
+| ULD-03 | Instant booking eligibility (selected space types, usage policy) is unresolved and therefore not encoded in the schema (A-02, Q-01); it is an implementation-stage decision. |
+| ULD-04 | Escalation/downgrade applies only while the maintenance record is open (A-04); once completed the impact level is fixed as the last recorded value. |
+| ULD-05 | No upper bound is placed on the number of simultaneously active maintenance records per space (Q-06); BR-43 permits any number. |
 
-## Summary
+### Open Questions (carried from `08-req-change-analysis-G7.md`)
 
-The Phase 1 conceptual and logical designs are preserved and extended incrementally:
+| ID | Question |
+| -- | -------- |
+| Q-01 | Which space types are eligible for instant booking, and what does "satisfy the usage policy" require? |
+| Q-02 | How is the requester's acknowledgement confirmed? |
+| Q-03 | Can impact level be downgraded below advisory? |
+| Q-04 | May affected approved bookings be cancelled after escalation, or only contacted? |
+| Q-05 | What counts as "at booking time" for advisory notification? |
+| Q-06 | Is there a maximum number of simultaneous active maintenance records per space? |
 
-* **Conceptual:** two new attributes (`impact_level` on Maintenance Record, `advisory_acknowledgement` on Booking); semantic updates to `reserves` and `pertains_to`; no entity or relationship added or removed; business rules BR-19 removed, BR-32/BR-33/BR-14 modified, BR-42 .. BR-50 added.
-* **Logical:** `Maintenance_Record.impact_level` (NOT NULL, default advisory, enumeration) and `Booking.advisory_acknowledgement` (boolean, conditional) are the only schema changes; all 11 FKs, 3 candidate keys, and 8 relations unchanged; total attribute count 55 → 57.
-* **Deferred:** instant-booking eligibility (Q-01), acknowledgement capture (Q-02), and all concurrency enforcement (BR-50, CC-01..CC-05) belong to the migration and concurrency stages.
-
-This document is the foundation for `outputs/10-schema-migration-G7.sql` and the Phase 2 implementation artifacts.
+These questions do not block the updated design; they constrain implementation-stage decisions (migration script, concurrency mechanisms, analytical queries).
