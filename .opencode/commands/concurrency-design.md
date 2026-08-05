@@ -5,7 +5,7 @@ description: Design concurrency control strategies for booking, approval, and ma
 Execute:
 
 1. Load:
-   `.opencode/skills/concurrency-design/SKILL.md`
+   `.opencode/skills/concurrency-design/SKILL_final.md`
 
 2. Execute the skill.
 
