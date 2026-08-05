@@ -40,7 +40,6 @@ Identify realistic operations that may execute simultaneously.
 | OP-04 | Record maintenance record | Staff member records a new maintenance record for a space with impact level out-of-service or advisory. |
 | OP-05 | Escalate maintenance | Staff member changes the impact level of an open maintenance record from advisory to out-of-service and identifies affected approved bookings. |
 | OP-06 | Downgrade maintenance | Staff member changes the impact level of an open maintenance record (e.g., out-of-service → advisory). |
-| OP-07 | Run operational reports | Facility Manager executes the Phase 2 reports (RC-08) over approved bookings and maintenance history. Read-only; consumed from committed data. |
 
 Note: no DELETE-style operation exists in the workflow (booking cancellation and maintenance deletion are not part of the requirements). DELETE vs other operations is therefore not analyzed.
 
@@ -315,7 +314,6 @@ All five conflicts are resolved with locking hints. No isolation level is requir
 - Booking approval executes within a single transaction, including its availability and maintenance-state re-validation.
 - Escalation to out-of-service (level update plus affected-booking identification) executes within a single transaction.
 - Every path that produces or validates an approved booking acquires the same space-row availability lock (UPDLOCK + HOLDLOCK) so all booking decisions share one serialization point.
-- Reporting (OP-07, RC-08) runs at the default READ COMMITTED isolation level and reads only committed data; reports do not threaten any business invariant and require no locking mechanism.
 - No DELETE-style operation (booking cancellation, maintenance record deletion) exists in the workflow, so DELETE concurrency is not analyzed.
 - The advisory snapshot recorded with a booking covers advisories committed before the snapshot read; advisories committed after the acknowledgement are outside the "at booking time" window (depends on Q-05).
 
@@ -329,7 +327,6 @@ All five conflicts are resolved with locking hints. No isolation level is requir
 - Q-04 (from 08): When maintenance is escalated to out-of-service and affected approved bookings are found, may those bookings be cancelled, or must staff only contact the requesters? (A cancellation operation would introduce a new DELETE-style concurrency consideration.)
 - Q-05 (from 08): How soon after an advisory is active must a booking-time notification capture it — what counts as "at booking time"? (Defines the boundary that CC-04's serialization point enforces.)
 - Q-06 (from 08): Is there a maximum number of simultaneous active maintenance records per space?
-- Q-07 (new): Should operational reports (RC-08) run under READ COMMITTED, or should reporting sessions use a snapshot-based approach to avoid blocking booking and maintenance transactions during semester-start peaks?
 
 ---
 
