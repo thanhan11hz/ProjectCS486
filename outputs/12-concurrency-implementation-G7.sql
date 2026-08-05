@@ -2,689 +2,798 @@
 -- Concurrency Implementation Script
 -- Project     : CS486 Booking System (Group 7)
 -- DBMS        : Microsoft SQL Server (T-SQL)
--- Target      : SQL Server 2019+
--- Description : Implements the concurrency enforcement from the concurrency
---               design (outputs/11-concurrency-design-G7.md) on top of the
---               Phase 2 migrated schema (outputs/10-schema-migration-G7.sql).
---               Provides stored procedures for each concurrent operation
---               (OP-01..OP-08) with the isolation levels and locking hints
---               recommended in the design.
+-- Target      : SQL Server 2019+ (T-SQL)
+-- Description : Implements the concurrency enforcement designed in
+--               outputs/11-concurrency-design-G7.md. Each business operation
+--               that touches a concurrency-sensitive invariant is wrapped in a
+--               single transaction (design assumption A-04) and protected with
+--               the isolation level / locking hints recommended for its
+--               conflict(s).
 -- Artifact    : outputs/12-concurrency-implementation-G7.sql
--- Prerequisite: outputs/11-concurrency-design-G7.md
---               outputs/10-schema-migration-G7.sql
---               outputs/05-db-implementation-G7.sql
--- Notes       : DML + concurrency only. Does NOT modify the schema. Does NOT
---               seed data. Designed to run after the Phase 2 migration is
---               applied.
+-- Prerequisite: outputs/05-db-implementation-G7.sql    (run first: schema)
+--               outputs/06-sample-data-G7.sql          (run second: seed data)
+--               outputs/10-schema-migration-G7.sql     (run third: adds
+--                   maintenance_records.impact_level,
+--                   bookings.advisory_acknowledged)
+-- Notes       : Stored procedures and transaction scripts only. Indexing to
+--               support the range scans belongs to stage 15
+--               (outputs/15-index-tuning-report-G7.md).
 -- ============================================================================
 
 USE [CS486_Booking_System];
 GO
 
-SET NOCOUNT ON;
-GO
+-- ============================================================================
+-- 1. CONFLICT -> OPERATION -> MECHANISM MAPPING (traceability)
+-- ----------------------------------------------------------------------------
+--   CC-01  BR-14, BR-50        OP-01 Instant booking
+--            -> READ COMMITTED + UPDLOCK (space row)
+--               + HOLDLOCK (availability range read)
+--   CC-02  BR-14, BR-49, BR-50 OP-01 Instant booking, OP-02 Submission,
+--                              OP-03 Staff approval
+--            -> READ COMMITTED + UPDLOCK (space row)
+--               + HOLDLOCK (availability range read)
+--   CC-03  BR-44, BR-48        OP-04 Escalation (vs OP-01/OP-02/OP-03)
+--            -> READ COMMITTED + UPDLOCK (space row)
+--               + UPDLOCK (maintenance record row)
+--               + HOLDLOCK (affected-bookings range scan, OP-08)
+--            booking side additionally holds HOLDLOCK over the active
+--            out-of-service maintenance range for its requested period
+--   CC-04  BR-45, BR-46        OP-01/OP-02 (vs OP-06 Advisory recording)
+--            -> booking transaction holds HOLDLOCK over the space's active
+--               advisory range; the advisory INSERT needs no hint because it
+--               is naturally blocked by that range lock
+--   CC-05  BR-47               OP-04 Escalation, OP-05 Downgrade
+--            -> READ COMMITTED + UPDLOCK (maintenance record row)
+--
+-- Mechanism selection note (per the concurrency-implementation skill rule
+-- "use only SUFFICIENT mechanisms and prioritise mechanisms of LOWER LEVEL"):
+--   The design (11-concurrency-design-G7.md, section 4) recommends
+--   SERIALIZABLE for CC-01..CC-04. Raising the whole transaction to
+--   SERIALIZABLE also locks every unrelated read; instead the HOLDLOCK hint is
+--   used on the specific protected statements, which reproduces the same
+--   key-range/table-range phantom protection at READ COMMITTED. The invariant
+--   guarantee is identical, while blocking of unrelated data is reduced.
+--   CC-05 is inherently row-level, so the design's lower-level READ COMMITTED
+--   + UPDLOCK is used unchanged.
+-- ============================================================================
 
 -- ============================================================================
--- 1. METHODOLOGY / MAPPING
--- ----------------------------------------------------------------------------
--- Each stored procedure implements one concurrent business operation and uses
--- the mechanism recommended for the corresponding conflict:
---
---   Conflict / Operation                Mechanism
---   -------------------------------------------------------------------------
---   CC-01  OP-01 Create Instant Booking SERIALIZABLE + UPDLOCK(space)
---                                        + HOLDLOCK(range reads)   [OP-01]
---   CC-02  OP-03 Approve Booking        SERIALIZABLE + UPDLOCK(space)
---                                        + HOLDLOCK(range reads)   [OP-03]
---   CC-03  OP-04 Escalate Level (OOS)   SERIALIZABLE + UPDLOCK(maintenance row)
---                                        + HOLDLOCK(booking range scan)
---                                                                  [OP-04, OP-08]
---   CC-04  OP-01/02 Advisory capture    SERIALIZABLE + HOLDLOCK(advisory range)
---                                                                  [within OP-01/02]
---   CC-05  OP-04/05 Level decision      READ COMMITTED + UPDLOCK(row)
---                                                                  [OP-05; row step of OP-04]
---
--- Conventions used throughout:
---   * XACT_ABORT ON so any runtime error rolls back the whole operation.
---   * Transactions are opened explicitly; validation reads and writes share
---     one transaction (design assumption A-04 / A-07).
---   * The space row is read with UPDLOCK as the common serialization point for
---     all booking/approval paths (design A-05).
---   * Availability and maintenance state reads use HOLDLOCK under SERIALIZABLE
---     to take range locks that prevent phantom overlaps (CC-01..CC-04).
---   * Impact-level decision reads use UPDLOCK under READ COMMITTED to prevent
---     lost updates on the single maintenance row (CC-05).
+-- 2. CC-01 / CC-02 / CC-03 / CC-04 — BOOKING PATH
 -- ============================================================================
 
--- ============================================================================
--- 2. HELPER: SPACE AVAILABILITY CHECK (range + maintenance)
 -- ----------------------------------------------------------------------------
--- Shared availability validation for every booking path (OP-01, OP-02, OP-03).
--- Must be called INSIDE an existing SERIALIZABLE transaction so that the
--- HOLDLOCK range reads are held for the duration of the enclosing operation.
---
--- Returns:
---   0  = free: no overlapping approved booking and no overlapping
---        out-of-service maintenance for [@start,@end) on the space.
---   1  = blocked by an overlapping APPROVED booking (BR-14/BR-50).
---   2  = blocked by active OUT_OF_SERVICE maintenance (BR-44).
---   3  = space not bookable by its status (BR-32).
+-- OP-01: usp_create_instant_booking
+-- CC-01 / CC-02 / CC-03 / CC-04, auto-approval path (BR-49)
+-- Mechanism: READ COMMITTED + UPDLOCK (space row) + HOLDLOCK
+--   (availability, out-of-service, and advisory range reads)
 -- ----------------------------------------------------------------------------
-CREATE OR ALTER PROCEDURE dbo.usp_CheckSpaceAvailability
-    @space_code      VARCHAR(20),
-    @start_time      DATETIME2,
-    @end_time        DATETIME2,
-    @availability    INT OUTPUT
+CREATE OR ALTER PROCEDURE usp_create_instant_booking
+    @requester_id           VARCHAR(50),
+    @space_code             VARCHAR(20),
+    @requested_start_time   DATETIME2,
+    @requested_end_time     DATETIME2,
+    @purpose                VARCHAR(30),
+    @expected_participants  INT
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    DECLARE @space_status VARCHAR(30);
-
-    -- UPDLOCK on the space row: common serialization point that orders all
-    -- booking/approval operations on the same space (CC-01/02/03).
-    SELECT @space_status = status
-    FROM   dbo.spaces WITH (UPDLOCK, ROWLOCK)
-    WHERE  space_code = @space_code;
-
-    IF @space_status IS NULL
-    BEGIN
-        SET @availability = 4;             -- space does not exist
-        RETURN;
-    END
-
-    IF @space_status IN (N'under_maintenance', N'temporarily_closed', N'retired')
-    BEGIN
-        SET @availability = 3;             -- BR-32
-        RETURN;
-    END
-
-    -- CC-01/02: overlapping APPROVED booking check. HOLDLOCK + SERIALIZABLE
-    -- turns the range scan into a key-range lock so a concurrent insert of an
-    -- overlapping approved booking cannot commit while we are uncommitted.
-    IF EXISTS (
-        SELECT 1
-        FROM   dbo.bookings WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code = @space_code
-          AND  status     = N'approved'
-          AND  requested_start_time < @end_time
-          AND  requested_end_time   > @start_time
-    )
-    BEGIN
-        SET @availability = 1;             -- BR-14 / BR-50
-        RETURN;
-    END
-
-    -- CC-03: active OUT_OF_SERVICE maintenance check. Hold the range lock so an
-    -- escalation to out-of-service overlapping [@start,@end) must wait until
-    -- this check of the period is committed.
-    IF EXISTS (
-        SELECT 1
-        FROM   dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code   = @space_code
-          AND  impact_level = N'out_of_service'
-          AND  start_time   < @end_time
-          AND  (completion_time IS NULL OR completion_time > @start_time)
-    )
-    BEGIN
-        SET @availability = 2;             -- BR-44
-        RETURN;
-    END
-
-    SET @availability = 0;                 -- free
-END;
-GO
-
--- ============================================================================
--- 3. OP-01 — CREATE INSTANT BOOKING  (CC-01, CC-04)
--- ----------------------------------------------------------------------------
--- User submits a booking that auto-approves at submission time (BR-49).
--- Runs entirely under SERIALIZABLE so the availability range locks and the
--- active-advisory range locks prevent phantom overlaps and notify the
--- requester of exactly the advisories active at booking time (BR-45/46).
--- ============================================================================
-CREATE OR ALTER PROCEDURE dbo.usp_CreateInstantBooking
-    @requester_id          VARCHAR(50),
-    @space_code            VARCHAR(20),
-    @requested_start_time  DATETIME2,
-    @requested_end_time    DATETIME2,
-    @purpose               VARCHAR(30),
-    @expected_participants INT,
-    @booking_id            INT OUTPUT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    DECLARE @availability INT;
-    DECLARE @capacity     INT;
-    DECLARE @has_advisory BIT = 0;
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-    BEGIN TRANSACTION;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
     BEGIN TRY
-        -- Shared availability + maintenance check (BR-14, BR-44, BR-32).
-        EXEC dbo.usp_CheckSpaceAvailability
-            @space_code, @requested_start_time, @requested_end_time,
-            @availability OUTPUT;
+        BEGIN TRANSACTION;
 
-        IF @availability <> 0
+        -- [CC-01/CC-02/CC-03] UPDLOCK on the space row is the common
+        --   serialization point for every operation that mutates the space's
+        --   availability state (instant booking, submission, approval,
+        --   escalation). It is acquired before any other lock in this path so
+        --   all booking-path transactions share one lock order (space first)
+        --   and cannot deadlock. Also reads capacity and status for the
+        --   business validation (BR-32, BR-40).
+        DECLARE @capacity      INT;
+        DECLARE @space_status  VARCHAR(30);
+
+        SELECT @capacity = capacity, @space_status = status
+          FROM spaces WITH (UPDLOCK, HOLDLOCK)
+         WHERE space_code = @space_code;
+
+        IF @@ROWCOUNT = 0
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Instant booking rejected: availability code %d.', 16, 1, @availability);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 51001, N'Space does not exist.', 1;
         END
 
-        -- CC-04: capture the stable advisory set active at booking time under
-        -- range locks, so a concurrent advisory insert is not missed and the
-        -- acknowledgement is complete (BR-45, BR-46).
-        SELECT @has_advisory = CASE WHEN COUNT_BIG(*) > 0 THEN 1 ELSE 0 END
-        FROM   dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code   = @space_code
-          AND  impact_level = N'advisory'
-          AND  start_time   < @requested_end_time
-          AND  (completion_time IS NULL OR completion_time > @requested_start_time);
-
-        -- Capacity validation (BR-40 / BR-NI-05).
-        SELECT @capacity = capacity
-        FROM   dbo.spaces
-        WHERE  space_code = @space_code;
+        IF @space_status IN (N'under_maintenance', N'temporarily_closed', N'retired')
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 51002, N'Space is not bookable in its current status.', 1;
+        END
 
         IF @expected_participants > @capacity
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Expected participants exceed space capacity.', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 51003, N'Expected participants exceed the space capacity.', 1;
         END
 
-        -- Record the APPROVED booking (instant approval path, BR-49).
-        INSERT INTO dbo.bookings (
+        -- [CC-01] HOLDLOCK on the availability range read: shared key-range
+        --   locks over the approved bookings of this space that overlap the
+        --   requested period are held to the end of the transaction, so a
+        --   concurrent instant booking / submission / approval for an
+        --   overlapping period cannot insert in between (phantom prevention,
+        --   BR-14 / BR-50).
+        IF EXISTS (
+            SELECT 1
+              FROM bookings WITH (HOLDLOCK)
+             WHERE space_code            = @space_code
+               AND status                = N'approved'
+               AND requested_start_time  < @requested_end_time
+               AND requested_end_time    > @requested_start_time
+        )
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 51004, N'The space is already booked for an overlapping period.', 1;
+        END
+
+        -- [CC-03] HOLDLOCK on the out-of-service maintenance range read: a
+        --   concurrent escalation that marks this space out of service for an
+        --   overlapping period cannot commit before this booking does, so the
+        --   booking can never be created on a space that was already declared
+        --   out of service (BR-44).
+        IF EXISTS (
+            SELECT 1
+              FROM maintenance_records WITH (HOLDLOCK)
+             WHERE space_code            = @space_code
+               AND impact_level          = N'out_of_service'
+               AND status                IN (N'reported', N'in_progress')
+               AND start_time            < @requested_end_time
+               AND (completion_time IS NULL OR completion_time > @requested_start_time)
+        )
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 51005, N'The space is out of service for the requested period.', 1;
+        END
+
+        -- [CC-04] HOLDLOCK on the active advisory range read: the advisory set
+        --   is captured atomically with the booking. A concurrently recorded
+        --   advisory either commits before this booking (and is then captured
+        --   and acknowledged) or commits after it (and is correctly excluded);
+        --   it can never be silently missed (BR-45 / BR-46).
+        DECLARE @advisory_active BIT =
+            CASE WHEN EXISTS (
+                SELECT 1
+                  FROM maintenance_records WITH (HOLDLOCK)
+                 WHERE space_code            = @space_code
+                   AND impact_level          = N'advisory'
+                   AND status                IN (N'reported', N'in_progress')
+                   AND start_time            < @requested_end_time
+                   AND (completion_time IS NULL OR completion_time > @requested_start_time)
+            ) THEN 1 ELSE 0 END;
+
+        -- Instant booking is auto-approved at submission time (OP-01, BR-49).
+        -- The acknowledgement is recorded when advisories are active (BR-46);
+        -- requesters are notified at application level (out of scope, A-03).
+        INSERT INTO bookings (
             requester_id, space_code, requested_start_time, requested_end_time,
             purpose, expected_participants, status, advisory_acknowledged
         )
         VALUES (
             @requester_id, @space_code, @requested_start_time, @requested_end_time,
-            @purpose, @expected_participants, N'approved', @has_advisory
+            @purpose, @expected_participants, N'approved',
+            CASE WHEN @advisory_active = 1 THEN 1 ELSE NULL END
         );
-
-        SET @booking_id = SCOPE_IDENTITY();
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
         THROW;
-    END CATCH;
+    END CATCH
 END;
 GO
 
--- ============================================================================
--- 4. OP-02 — SUBMIT BOOKING REQUEST (staff-approval workflow)
 -- ----------------------------------------------------------------------------
--- User submits a request that goes through the staff approval workflow.
--- The submission itself performs a limited availability probe so the request
--- is not queued against an already-conflicting period; it records a PENDING
--- booking (no approval yet). The definitive no-overlap guarantee is enforced
--- at approval time (OP-03), which shares the same SERIALIZABLE mechanism
--- (BR-50). Advisory acknowledgement is captured at submission time, since the
--- requester is informed of active advisories when they request the space.
--- ============================================================================
-CREATE OR ALTER PROCEDURE dbo.usp_SubmitBookingRequest
-    @requester_id          VARCHAR(50),
-    @space_code            VARCHAR(20),
-    @requested_start_time  DATETIME2,
-    @requested_end_time    DATETIME2,
-    @purpose               VARCHAR(30),
-    @expected_participants INT,
-    @booking_id            INT OUTPUT
+-- OP-02: usp_submit_booking_request
+-- CC-02 / CC-03 / CC-04, staff-approval path (BR-28)
+-- Mechanism: READ COMMITTED + UPDLOCK (space row) + HOLDLOCK
+--   (availability, out-of-service, and advisory range reads)
+-- Note: the decisive availability check runs again inside usp_approve_booking;
+--       submission performs the same protected validation so a pending request
+--       is created against a consistent snapshot (assumption A-07).
+-- ----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE usp_submit_booking_request
+    @requester_id           VARCHAR(50),
+    @space_code             VARCHAR(20),
+    @requested_start_time   DATETIME2,
+    @requested_end_time     DATETIME2,
+    @purpose                VARCHAR(30),
+    @expected_participants  INT
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    DECLARE @availability INT;
-    DECLARE @capacity     INT;
-    DECLARE @has_advisory BIT = 0;
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-    BEGIN TRANSACTION;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
     BEGIN TRY
-        EXEC dbo.usp_CheckSpaceAvailability
-            @space_code, @requested_start_time, @requested_end_time,
-            @availability OUTPUT;
+        BEGIN TRANSACTION;
 
-        -- Submissions may be queued; only hard unbookable-by-status or
-        -- out-of-service blocks abort the submission outright (BR-32, BR-44).
-        IF @availability IN (2, 3, 4)
+        DECLARE @capacity      INT;
+        DECLARE @space_status  VARCHAR(30);
+
+        SELECT @capacity = capacity, @space_status = status
+          FROM spaces WITH (UPDLOCK, HOLDLOCK)
+         WHERE space_code = @space_code;
+
+        IF @@ROWCOUNT = 0
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Booking submission rejected: availability code %d.', 16, 1, @availability);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 52001, N'Space does not exist.', 1;
         END
 
-        -- CC-04: capture the advisory set at submission time (BR-45/46).
-        SELECT @has_advisory = CASE WHEN COUNT_BIG(*) > 0 THEN 1 ELSE 0 END
-        FROM   dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code   = @space_code
-          AND  impact_level = N'advisory'
-          AND  start_time   < @requested_end_time
-          AND  (completion_time IS NULL OR completion_time > @requested_start_time);
-
-        SELECT @capacity = capacity
-        FROM   dbo.spaces
-        WHERE  space_code = @space_code;
+        IF @space_status IN (N'under_maintenance', N'temporarily_closed', N'retired')
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 52002, N'Space is not bookable in its current status.', 1;
+        END
 
         IF @expected_participants > @capacity
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Expected participants exceed space capacity.', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 52003, N'Expected participants exceed the space capacity.', 1;
         END
 
-        INSERT INTO dbo.bookings (
+        -- [CC-02] Availability range read with HOLDLOCK (early validation; the
+        --   approval path re-checks under the same locks).
+        IF EXISTS (
+            SELECT 1
+              FROM bookings WITH (HOLDLOCK)
+             WHERE space_code            = @space_code
+               AND status                = N'approved'
+               AND requested_start_time  < @requested_end_time
+               AND requested_end_time    > @requested_start_time
+        )
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 52004, N'The space is already booked for an overlapping period.', 1;
+        END
+
+        -- [CC-03] Out-of-service maintenance range read with HOLDLOCK.
+        IF EXISTS (
+            SELECT 1
+              FROM maintenance_records WITH (HOLDLOCK)
+             WHERE space_code            = @space_code
+               AND impact_level          = N'out_of_service'
+               AND status                IN (N'reported', N'in_progress')
+               AND start_time            < @requested_end_time
+               AND (completion_time IS NULL OR completion_time > @requested_start_time)
+        )
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 52005, N'The space is out of service for the requested period.', 1;
+        END
+
+        -- [CC-04] Advisory range read with HOLDLOCK; captured acknowledgement.
+        DECLARE @advisory_active BIT =
+            CASE WHEN EXISTS (
+                SELECT 1
+                  FROM maintenance_records WITH (HOLDLOCK)
+                 WHERE space_code            = @space_code
+                   AND impact_level          = N'advisory'
+                   AND status                IN (N'reported', N'in_progress')
+                   AND start_time            < @requested_end_time
+                   AND (completion_time IS NULL OR completion_time > @requested_start_time)
+            ) THEN 1 ELSE 0 END;
+
+        INSERT INTO bookings (
             requester_id, space_code, requested_start_time, requested_end_time,
             purpose, expected_participants, status, advisory_acknowledged
         )
         VALUES (
             @requester_id, @space_code, @requested_start_time, @requested_end_time,
-            @purpose, @expected_participants, N'pending', @has_advisory
+            @purpose, @expected_participants, N'pending',
+            CASE WHEN @advisory_active = 1 THEN 1 ELSE NULL END
         );
-
-        SET @booking_id = SCOPE_IDENTITY();
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
         THROW;
-    END CATCH;
+    END CATCH
 END;
 GO
 
--- ============================================================================
--- 5. OP-03 — APPROVE BOOKING  (CC-02)
 -- ----------------------------------------------------------------------------
--- Staff approves a PENDING booking. Runs the definitive availability check
--- under SERIALIZABLE with UPDLOCK on the space row and HOLDLOCK range reads,
--- so it cannot race an instant booking or another approval into overlapping
--- approved bookings (BR-14, BR-49, BR-50). Records the approval row and flips
--- the booking status.
--- ============================================================================
-CREATE OR ALTER PROCEDURE dbo.usp_ApproveBooking
+-- OP-03: usp_approve_booking
+-- CC-02 / CC-03 / CC-04, staff-approval workflow (BR-28)
+-- Mechanism: READ COMMITTED + UPDLOCK (pending booking row and space row)
+--   + HOLDLOCK (availability, out-of-service, advisory range reads)
+-- ----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE usp_approve_booking
     @booking_id     INT,
     @approver_id    VARCHAR(50),
     @decision_note  NVARCHAR(500) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    DECLARE @space_code        VARCHAR(20);
-    DECLARE @start_time        DATETIME2;
-    DECLARE @end_time          DATETIME2;
-    DECLARE @requester_id      VARCHAR(50);
-    DECLARE @current_status    VARCHAR(20);
-    DECLARE @availability      INT;
-    DECLARE @has_advisory      BIT;
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-    BEGIN TRANSACTION;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
     BEGIN TRY
-        -- Lock the pending booking with UPDLOCK so two staff members cannot
-        -- approve the same request concurrently.
-        SELECT @space_code  = space_code,
-               @start_time  = requested_start_time,
-               @end_time    = requested_end_time,
-               @requester_id= requester_id,
-               @current_status = status,
-               @has_advisory = advisory_acknowledged
-        FROM   dbo.bookings WITH (UPDLOCK, ROWLOCK)
-        WHERE  booking_id = @booking_id;
+        BEGIN TRANSACTION;
 
-        IF @current_status IS NULL
+        -- UPDLOCK on the pending booking row: two staff members cannot approve
+        -- (or reject) the same request concurrently (1:1 approvals,
+        -- uq_approvals_booking_id), and the lock is held until commit.
+        DECLARE @space_code           VARCHAR(20);
+        DECLARE @requested_start_time DATETIME2;
+        DECLARE @requested_end_time   DATETIME2;
+        DECLARE @current_status       VARCHAR(20);
+
+        SELECT @space_code           = space_code,
+               @requested_start_time = requested_start_time,
+               @requested_end_time   = requested_end_time,
+               @current_status       = status
+          FROM bookings WITH (UPDLOCK, HOLDLOCK)
+         WHERE booking_id = @booking_id;
+
+        IF @@ROWCOUNT = 0
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Booking not found.', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 53001, N'Booking not found.', 1;
         END
 
         IF @current_status <> N'pending'
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Only pending bookings can be approved (BR-28).', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 53002, N'Only pending bookings can be approved.', 1;
         END
 
-        IF @approver_id = @requester_id
-        BEGIN
-            ROLLBACK;
-            RAISERROR(N'Approver must differ from requester (BR-11).', 16, 1);
-            RETURN;
-        END
-
-        -- CC-02: decisive availability check before the approval is recorded.
-        EXEC dbo.usp_CheckSpaceAvailability
-            @space_code, @start_time, @end_time, @availability OUTPUT;
-
-        IF @availability <> 0
-        BEGIN
-            ROLLBACK;
-            RAISERROR(N'Approval rejected: overlapping approved booking or out-of-service maintenance (code %d).', 16, 1, @availability);
-            RETURN;
-        END
-
-        -- Approval decision must precede the booking start (BR-37).
-        IF SYSDATETIME() >= @start_time
-        BEGIN
-            ROLLBACK;
-            RAISERROR(N'Approval decision must be before booking start (BR-37).', 16, 1);
-            RETURN;
-        END
-
-        -- Record the approval and finalize the booking status atomically.
-        INSERT INTO dbo.approvals (
-            booking_id, approver_id, decision, decision_time, decision_note
+        -- [CC-02] UPDLOCK on the space row: shared serialization point with the
+        --   instant-booking and submission paths (space-first lock order).
+        IF NOT EXISTS (
+            SELECT 1
+              FROM spaces WITH (UPDLOCK, HOLDLOCK)
+             WHERE space_code = @space_code
         )
-        VALUES (@booking_id, @approver_id, N'approved', SYSDATETIME(), @decision_note);
-
-        UPDATE dbo.bookings
-        SET    status = N'approved'
-        WHERE  booking_id = @booking_id;
-
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-GO
-
--- ============================================================================
--- 6. OP-08 — IDENTIFY AFFECTED APPROVED BOOKINGS  (CC-03)
--- ----------------------------------------------------------------------------
--- Lists approved bookings overlapping a maintenance period. Under SERIALIZABLE
--- + HOLDLOCK this scan takes range locks over the period so no concurrent
--- approval/instant booking can commit into the period while the scan runs,
--- making the affected set complete (BR-48).
--- ============================================================================
-CREATE OR ALTER PROCEDURE dbo.usp_IdentifyAffectedBookings
-    @space_code     VARCHAR(20),
-    @start_time     DATETIME2,
-    @end_time       DATETIME2
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-    BEGIN TRANSACTION;
-
-    BEGIN TRY
-        -- Range-read approved bookings overlapping [@start,@end).
-        SELECT b.booking_id,
-               b.requester_id,
-               u.first_name,
-               u.last_name,
-               u.email,
-               u.phone_number,
-               b.requested_start_time,
-               b.requested_end_time
-        FROM   dbo.bookings b WITH (HOLDLOCK, ROWLOCK)
-        JOIN   dbo.users    u ON u.user_id = b.requester_id
-        WHERE  b.space_code = @space_code
-          AND  b.status     = N'approved'
-          AND  b.requested_start_time < @end_time
-          AND  b.requested_end_time   > @start_time
-        ORDER  BY b.requested_start_time;
-
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-GO
-
--- ============================================================================
--- 7. OP-04 — ESCALATE MAINTENANCE IMPACT LEVEL  (CC-03, CC-05, CC-03/OP-08)
--- ----------------------------------------------------------------------------
--- Staff escalates an OPEN maintenance record from advisory to out-of-service.
--- The whole escalation is one transaction (design A-08):
---   * UPDLOCK read on the maintenance row prevents a lost update against a
---     concurrent downgrade decision (CC-05).
---   * The affected-approved-bookings scan runs under SERIALIZABLE (the
---     enclosing transaction) + HOLDLOCK so it cannot miss a concurrently
---     approved booking (CC-03 Direction B, BR-48).
---   * Because the transaction holds SERIALIZABLE range locks on the period,
---     a concurrent booking into the period is blocked (CC-03 Direction A,
---     BR-44).
--- ============================================================================
-CREATE OR ALTER PROCEDURE dbo.usp_EscalateMaintenanceToOutOfService
-    @maintenance_id  INT,
-    @staff_id        VARCHAR(50)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    DECLARE @space_code   VARCHAR(20);
-    DECLARE @start_time   DATETIME2;
-    DECLARE @completion   DATETIME2;
-    DECLARE @cur_level    VARCHAR(20);
-    DECLARE @cur_status   VARCHAR(20);
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-    BEGIN TRANSACTION;
-
-    BEGIN TRY
-        -- CC-05: UPDLOCK read of the maintenance row. This serializes concurrent
-        -- escalation/downgrade decisions on the same record (BR-47).
-        SELECT @space_code = space_code,
-               @start_time = start_time,
-               @completion = completion_time,
-               @cur_level  = impact_level,
-               @cur_status = status
-        FROM   dbo.maintenance_records WITH (UPDLOCK, ROWLOCK)
-        WHERE  maintenance_id = @maintenance_id;
-
-        IF @cur_status IS NULL
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record not found.', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 53003, N'Referenced space no longer exists.', 1;
         END
 
-        -- Escalation/downgrade applies only while the record is OPEN (A-02).
-        IF @cur_status = N'completed'
+        -- [CC-02] HOLDLOCK availability range read: an overlapping instant
+        --   booking or another staff approval that commits concurrently cannot
+        --   slip between this check and the recording of the approval (BR-14,
+        --   BR-49, BR-50). This is the decisive check that closes the race
+        --   between the approval and booking-submission paths.
+        IF EXISTS (
+            SELECT 1
+              FROM bookings WITH (HOLDLOCK)
+             WHERE space_code            = @space_code
+               AND booking_id            <> @booking_id
+               AND status                = N'approved'
+               AND requested_start_time  < @requested_end_time
+               AND requested_end_time    > @requested_start_time
+        )
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record is already completed.', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 53004, N'Approval would create overlapping approved bookings.', 1;
         END
 
-        -- Apply the escalation.
-        UPDATE dbo.maintenance_records
-        SET    impact_level = N'out_of_service',
-               assigned_staff_id = @staff_id
-        WHERE  maintenance_id = @maintenance_id;
+        -- [CC-03] HOLDLOCK out-of-service range read: approval cannot proceed
+        --   while the space is (or concurrently becomes) out of service.
+        IF EXISTS (
+            SELECT 1
+              FROM maintenance_records WITH (HOLDLOCK)
+             WHERE space_code            = @space_code
+               AND impact_level          = N'out_of_service'
+               AND status                IN (N'reported', N'in_progress')
+               AND start_time            < @requested_end_time
+               AND (completion_time IS NULL OR completion_time > @requested_start_time)
+        )
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 53005, N'The space is out of service for the requested period.', 1;
+        END
 
-        -- CC-03 / OP-08: identify affected approved bookings. The HOLDLOCK scan
-        -- takes range locks over the maintenance period so no booking can commit
-        -- into it concurrently (BR-48). The affected list is returned to the
-        -- caller so staff can contact the requesters.
-        SELECT b.booking_id,
-               b.requester_id,
-               u.first_name,
-               u.last_name,
-               u.email,
-               b.requested_start_time,
-               b.requested_end_time
-        FROM   dbo.bookings b WITH (HOLDLOCK, ROWLOCK)
-        JOIN   dbo.users    u ON u.user_id = b.requester_id
-        WHERE  b.space_code = @space_code
-          AND  b.status     = N'approved'
-          AND  b.requested_start_time < CASE WHEN @completion IS NULL THEN @start_time + 1 WHEN @completion > @start_time THEN @completion ELSE @start_time + 1 END
-          AND  b.requested_end_time   > @start_time;
+        -- [CC-04] HOLDLOCK advisory range read and acknowledgement refresh so
+        --   the advisory set is stable at the point the booking becomes
+        --   approved (BR-45 / BR-46).
+        DECLARE @advisory_active BIT =
+            CASE WHEN EXISTS (
+                SELECT 1
+                  FROM maintenance_records WITH (HOLDLOCK)
+                 WHERE space_code            = @space_code
+                   AND impact_level          = N'advisory'
+                   AND status                IN (N'reported', N'in_progress')
+                   AND start_time            < @requested_end_time
+                   AND (completion_time IS NULL OR completion_time > @requested_start_time)
+            ) THEN 1 ELSE 0 END;
+
+        UPDATE bookings
+           SET status                = N'approved',
+               advisory_acknowledged = CASE WHEN @advisory_active = 1 THEN 1 ELSE NULL END
+         WHERE booking_id = @booking_id;
+
+        INSERT INTO approvals (booking_id, approver_id, decision, decision_time, decision_note)
+        VALUES (@booking_id, @approver_id, N'approved', SYSUTCDATETIME(), @decision_note);
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
         THROW;
-    END CATCH;
+    END CATCH
 END;
 GO
 
 -- ============================================================================
--- 8. OP-05 — DOWNGRADE MAINTENANCE IMPACT LEVEL  (CC-05)
--- ----------------------------------------------------------------------------
--- Staff downgrades an OPEN maintenance record (out-of-service -> advisory).
--- A pure row-level decision, protected from lost updates by the UPDLOCK read
--- on the maintenance row under READ COMMITTED (CC-05, BR-47). No range scan is
--- required, so the least-restrictive row-level mechanism is sufficient.
+-- 3. CC-03 / CC-05 — MAINTENANCE IMPACT LEVEL OPERATIONS
 -- ============================================================================
-CREATE OR ALTER PROCEDURE dbo.usp_DowngradeMaintenanceToAdvisory
-    @maintenance_id  INT,
-    @staff_id        VARCHAR(50)
+
+-- ----------------------------------------------------------------------------
+-- OP-04: usp_escalate_maintenance_impact
+-- CC-03 (vs concurrent bookings) + CC-05 (vs concurrent decisions)
+-- Mechanism: READ COMMITTED + UPDLOCK (space row) + UPDLOCK (maintenance
+--   record row) + HOLDLOCK (affected-bookings range scan, OP-08)
+-- Lock order: space row first, then maintenance record, then the scan —
+--   identical to the booking path so escalation and booking can never form a
+--   lock cycle.
+-- ----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE usp_escalate_maintenance_impact
+    @maintenance_id INT
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    DECLARE @cur_level    VARCHAR(20);
-    DECLARE @cur_status   VARCHAR(20);
-
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-    BEGIN TRANSACTION;
 
     BEGIN TRY
-        -- CC-05: UPDLOCK read. Under READ COMMITTED this is an update lock that
-        -- is retained until commit, blocking a concurrent decision and forcing
-        -- the second decision to be evaluated against the latest committed
-        -- level (BR-47). Prevents the lost update / lost-workflow problem.
-        SELECT @cur_level  = impact_level,
-               @cur_status = status
-        FROM   dbo.maintenance_records WITH (UPDLOCK, ROWLOCK)
-        WHERE  maintenance_id = @maintenance_id;
+        BEGIN TRANSACTION;
 
-        IF @cur_status IS NULL
+        DECLARE @space_code      VARCHAR(20);
+        DECLARE @start_time      DATETIME2;
+        DECLARE @completion_time DATETIME2;
+        DECLARE @impact_level    VARCHAR(20);
+        DECLARE @main_status     VARCHAR(20);
+
+        -- Unlocked probe to discover the space and maintenance period. The
+        -- record itself is re-read with UPDLOCK below before any decision is
+        -- applied, so a level change that commits between the probe and the
+        -- lock is never overwritten.
+        SELECT @space_code      = space_code,
+               @start_time      = start_time,
+               @completion_time = completion_time
+          FROM maintenance_records
+         WHERE maintenance_id = @maintenance_id;
+
+        IF @@ROWCOUNT = 0
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record not found.', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 54001, N'Maintenance record not found.', 1;
         END
 
-        IF @cur_status = N'completed'
+        -- [CC-03] UPDLOCK on the space row acquired BEFORE the maintenance
+        --   record lock (space-first lock order shared with the booking path).
+        SELECT space_code
+          FROM spaces WITH (UPDLOCK, HOLDLOCK)
+         WHERE space_code = @space_code;
+
+        IF @@ROWCOUNT = 0
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record is already completed (A-02).', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 54002, N'Referenced space no longer exists.', 1;
         END
 
-        IF @cur_level = N'advisory'
+        -- [CC-05] UPDLOCK on the maintenance record row: a concurrent
+        --   escalation or downgrade decision (OP-04/OP-05) blocks until this
+        --   decision commits, so the second decision is applied to the latest
+        --   committed level instead of a stale read (lost-update prevention,
+        --   BR-47).
+        SELECT @start_time      = start_time,
+               @completion_time = completion_time,
+               @impact_level    = impact_level,
+               @main_status     = status
+          FROM maintenance_records WITH (UPDLOCK, HOLDLOCK)
+         WHERE maintenance_id = @maintenance_id;
+
+        IF @main_status NOT IN (N'reported', N'in_progress')
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Impact level is already advisory.', 16, 1);
-            RETURN;
+            ROLLBACK TRANSACTION;
+            THROW 54003, N'Only open maintenance records can be escalated.', 1;
         END
 
-        UPDATE dbo.maintenance_records
-        SET    impact_level = N'advisory',
-               assigned_staff_id = @staff_id
-        WHERE  maintenance_id = @maintenance_id;
+        IF @impact_level = N'out_of_service'
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 54004, N'The maintenance record is already out of service.', 1;
+        END
+
+        -- Guarded update: the level must still be 'advisory' at write time;
+        -- if a concurrent decision committed in between, no row is updated and
+        -- the decision is aborted (BR-47).
+        UPDATE maintenance_records
+           SET impact_level = N'out_of_service'
+         WHERE maintenance_id = @maintenance_id
+           AND impact_level   = N'advisory'
+           AND status         IN (N'reported', N'in_progress');
+
+        IF @@ROWCOUNT <> 1
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 54005, N'The maintenance record changed concurrently; decision aborted.', 1;
+        END
+
+        -- [CC-03][OP-08] HOLDLOCK on the affected approved-bookings range:
+        --   the scan (required by BR-48 so staff can contact requesters) is
+        --   protected against a booking that commits concurrently. A booking
+        --   for an overlapping period either blocks until this escalation
+        --   commits (and is then rejected by the booking-side checks) or is
+        --   already visible in this result set — it cannot be missed.
+        SELECT b.booking_id,
+               b.requester_id,
+               u.email             AS requester_email,
+               b.requested_start_time,
+               b.requested_end_time,
+               b.purpose
+          FROM bookings b WITH (HOLDLOCK)
+          JOIN users    u ON u.user_id = b.requester_id
+         WHERE b.space_code = @space_code
+           AND b.status     = N'approved'
+           AND (b.requested_start_time < @completion_time OR @completion_time IS NULL)
+           AND b.requested_end_time     > @start_time
+         ORDER BY b.requested_start_time;
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
         THROW;
-    END CATCH;
+    END CATCH
+END;
+GO
+
+-- ----------------------------------------------------------------------------
+-- OP-05: usp_downgrade_maintenance_impact
+-- CC-05 (vs concurrent escalation/downgrade decisions)
+-- Mechanism: READ COMMITTED + UPDLOCK (maintenance record row)
+-- Row-level conflict, so the least restrictive sufficient mechanism is a
+--   row-level update lock acquired at the read.
+-- ----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE usp_downgrade_maintenance_impact
+    @maintenance_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @impact_level VARCHAR(20);
+        DECLARE @main_status  VARCHAR(20);
+
+        -- [CC-05] UPDLOCK on the maintenance record row (same mechanism as the
+        --   escalation path): concurrent decisions on this record serialize.
+        SELECT @impact_level = impact_level,
+               @main_status  = status
+          FROM maintenance_records WITH (UPDLOCK, HOLDLOCK)
+         WHERE maintenance_id = @maintenance_id;
+
+        IF @@ROWCOUNT = 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 55001, N'Maintenance record not found.', 1;
+        END
+
+        IF @main_status NOT IN (N'reported', N'in_progress')
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 55002, N'Only open maintenance records can be downgraded.', 1;
+        END
+
+        -- advisory is the minimum impact level (assumption A-01 / Q-06), so a
+        -- downgrade of an advisory record is a no-op.
+        IF @impact_level = N'advisory'
+        BEGIN
+            COMMIT TRANSACTION;
+            RETURN 0;
+        END
+
+        -- Guarded update; aborts if the level changed concurrently (BR-47).
+        UPDATE maintenance_records
+           SET impact_level = N'advisory'
+         WHERE maintenance_id = @maintenance_id
+           AND impact_level   = N'out_of_service'
+           AND status         IN (N'reported', N'in_progress');
+
+        IF @@ROWCOUNT <> 1
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 55003, N'The maintenance record changed concurrently; decision aborted.', 1;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END;
 GO
 
 -- ============================================================================
--- 9. OP-06 / OP-07 — RECORD MAINTENANCE  (advisory / out-of-service)
+-- 4. CC-04 — MAINTENANCE RECORDING OPERATIONS
 -- ----------------------------------------------------------------------------
--- Staff records a NEW open maintenance record for a space with an impact level.
--- The insert takes the impact_level value directly (BR-42). Because the new
--- row is inserted, it may block concurrent bookings only if it is
--- out_of_service; the SERIALIZABLE range protection for such bookings is
--- enforced by the booking-side availability check, not here. This procedure
--- just records the maintenance record; it does not need extra locking.
+-- OP-06 / OP-07 insert a new open maintenance record. No locking hint is
+-- required on the INSERT itself: a booking transaction holds HOLDLOCK range
+-- locks over the space's active maintenance records for its requested period,
+-- so a recording that would overlap an in-flight booking blocks until that
+-- booking commits. The advisory is then either captured in the booking's
+-- notification (if it commits first) or correctly excluded (if it commits
+-- after the booking) — BR-45 / BR-46 cannot be violated.
 -- ============================================================================
-CREATE OR ALTER PROCEDURE dbo.usp_RecordMaintenance
+
+-- ----------------------------------------------------------------------------
+-- OP-06: usp_record_advisory_maintenance
+-- ----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE usp_record_advisory_maintenance
     @reporter_id         VARCHAR(50),
     @space_code          VARCHAR(20),
     @assigned_staff_id   VARCHAR(50),
     @problem_description NVARCHAR(1000),
-    @start_time          DATETIME2,
-    @impact_level        VARCHAR(20),
-    @maintenance_id      INT OUTPUT
+    @start_time          DATETIME2
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
-    INSERT INTO dbo.maintenance_records (
-        reporter_id, space_code, assigned_staff_id, problem_description,
-        start_time, status, impact_level
-    )
-    VALUES (
-        @reporter_id, @space_code, @assigned_staff_id, @problem_description,
-        @start_time, N'in_progress', @impact_level
-    );
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-    SET @maintenance_id = SCOPE_IDENTITY();
+        INSERT INTO maintenance_records (
+            reporter_id, space_code, assigned_staff_id, problem_description,
+            start_time, completion_time, status, impact_level
+        )
+        VALUES (
+            @reporter_id, @space_code, @assigned_staff_id, @problem_description,
+            @start_time, NULL, N'reported', N'advisory'
+        );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO
+
+-- ----------------------------------------------------------------------------
+-- OP-07: usp_record_out_of_service_maintenance
+-- ----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE usp_record_out_of_service_maintenance
+    @reporter_id         VARCHAR(50),
+    @space_code          VARCHAR(20),
+    @assigned_staff_id   VARCHAR(50),
+    @problem_description NVARCHAR(1000),
+    @start_time          DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        INSERT INTO maintenance_records (
+            reporter_id, space_code, assigned_staff_id, problem_description,
+            start_time, completion_time, status, impact_level
+        )
+        VALUES (
+            @reporter_id, @space_code, @assigned_staff_id, @problem_description,
+            @start_time, NULL, N'reported', N'out_of_service'
+        );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END;
 GO
 
 -- ============================================================================
--- 10. CONCURRENCY TEST SCENARIOS (verification queries)
--- ----------------------------------------------------------------------------
--- Runnable smoke checks after seeding + migration. Each scenario opens two
--- concurrent transactions and verifies the enforced invariant. These are the
--- SQL-level manifestations of the scenarios specified in the concurrency
--- design (outputs/13-concurrency-tests-G7/).
---
--- Scenario A (CC-01/CC-02): simultaneous instant bookings / approval for an
---   overlapping period on the same space. Under SERIALIZABLE one of the two
---   must block and ultimately fail with availability code 1; the overlapping
---   approved booking invariant (BR-14, BR-50) holds.
---
--- Scenario B (CC-03): an escalation to out-of-service concurrent with a
---   booking into the maintenance period. Either the booking commits first and
---   is listed as affected, or the escalation commits first and the booking
---   fails with availability code 2 (BR-44, BR-48).
---
--- Scenario C (CC-05): two concurrent decisions on the same maintenance row.
---   With UPDLOCK one decision blocks; the second is evaluated against the
---   latest committed level, so no decision is silently lost (BR-47).
--- ============================================================================
--- Usage (SSMS, two query windows):
---   Window 1:
---     BEGIN TRANSACTION;
---       EXEC dbo.usp_CreateInstantBooking ...;
---     -- pause before COMMIT to demonstrate the block
---     COMMIT TRANSACTION;
---   Window 2:
---     EXEC dbo.usp_CreateInstantBooking ...;  -- blocks, then fails
+-- 5. CC-03 — AFFECTED BOOKINGS SCAN
 -- ============================================================================
 
--- ============================================================================
--- 11. RESET ISOLATION LEVEL TO SERVER DEFAULT
 -- ----------------------------------------------------------------------------
--- Individual procedures set the transaction isolation level explicitly at the
--- start of their own batch-scope transactions, so the session-level default
--- can be left at its (unchanged) READ COMMITTED baseline afterward.
--- ============================================================================
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+-- OP-08: usp_identify_affected_bookings
+-- CC-03 (Direction B), standalone version of the scan embedded in
+--   usp_escalate_maintenance_impact. Identifies all approved bookings
+--   overlapping the maintenance period so staff can contact the requesters
+--   (BR-48).
+-- Mechanism: READ COMMITTED + HOLDLOCK (approved-bookings range read)
+-- ----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE usp_identify_affected_bookings
+    @maintenance_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @space_code      VARCHAR(20);
+        DECLARE @start_time      DATETIME2;
+        DECLARE @completion_time DATETIME2;
+
+        SELECT @space_code      = space_code,
+               @start_time      = start_time,
+               @completion_time = completion_time
+          FROM maintenance_records
+         WHERE maintenance_id = @maintenance_id;
+
+        IF @@ROWCOUNT = 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+            THROW 56001, N'Maintenance record not found.', 1;
+        END
+
+        -- [CC-03][OP-08] HOLDLOCK over the approved-bookings range: a booking
+        --   approved concurrently with this scan cannot be missed; it either
+        --   blocks until the scan commits or is already part of the result.
+        SELECT b.booking_id,
+               b.requester_id,
+               u.email             AS requester_email,
+               b.requested_start_time,
+               b.requested_end_time,
+               b.purpose
+          FROM bookings b WITH (HOLDLOCK)
+          JOIN users    u ON u.user_id = b.requester_id
+         WHERE b.space_code = @space_code
+           AND b.status     = N'approved'
+           AND (b.requested_start_time < @completion_time OR @completion_time IS NULL)
+           AND b.requested_end_time     > @start_time
+         ORDER BY b.requested_start_time;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
 GO
+
+-- ============================================================================
+-- 6. IMPLEMENTATION SUMMARY (traceability)
+-- ----------------------------------------------------------------------------
+-- Conflict | Business rules   | Enforcing procedure(s)                  | Mechanism
+-- CC-01    | BR-14, BR-50     | usp_create_instant_booking             | READ COMMITTED + UPDLOCK(space) + HOLDLOCK(availability)
+-- CC-02    | BR-14,BR-49,BR-50| usp_create_instant_booking,            | READ COMMITTED + UPDLOCK(space) + HOLDLOCK(availability)
+--          |                  | usp_submit_booking_request,            |
+--          |                  | usp_approve_booking                    |
+-- CC-03    | BR-44, BR-48     | usp_escalate_maintenance_impact,       | UPDLOCK(space) + UPDLOCK(maintenance row) + HOLDLOCK(affected range);
+--          |                  | usp_identify_affected_bookings,        | booking path holds HOLDLOCK over active out-of-service range
+--          |                  | usp_create_instant_booking,            |
+--          |                  | usp_submit_booking_request,            |
+--          |                  | usp_approve_booking                    |
+-- CC-04    | BR-45, BR-46     | usp_create_instant_booking,            | HOLDLOCK(active advisory range) in booking path;
+--          |                  | usp_submit_booking_request,            | usp_record_advisory_maintenance needs no hint
+--          |                  | usp_approve_booking                    |
+-- CC-05    | BR-47            | usp_escalate_maintenance_impact,       | READ COMMITTED + UPDLOCK(maintenance record row)
+--          |                  | usp_downgrade_maintenance_impact       |
+--
+-- Verification: outputs/13-concurrency-tests-G7/ exercises these procedures
+-- under simultaneous transactions.
+-- ============================================================================
 
 -- ============================================================================
 -- END OF SCRIPT

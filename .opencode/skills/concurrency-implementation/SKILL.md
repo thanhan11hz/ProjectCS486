@@ -53,3 +53,37 @@ Create or update:
 Do not omit any required section.
 
 ---
+
+# Concurrency Implementation Step
+
+## Step 1: Understand the Concurrency Conflict and Related Transaction
+From the input files, read all concurrency conflicts, along with their related operations and recommended mechanism.
+
+## Step 2: Generate SQL script
+
+**Important rules**:
+
+Only use these mechanism for concurrency enforcement:
+
+- Isolation Levels
+
+* READ COMMITTED
+* REPEATABLE READ
+* SERIALIZABLE
+
+- Locking Hints
+
+* READCOMMITED
+* UPDLOCK
+* HOLDLOCK
+
+Exclude the use of lock granularity and row versioning.
+
+For a concurrency conflict. **CAUTIOUS:** Some of the recommended machinsims could be redundant and abuse high-level enforcement mechanisms. If the concurrency design suggest multiple enforcement mechanism, only use **SUFFICIENT** number of them and prioritize mechanisms of **LOWER LEVEL**.
+
+For each concurrency conflict:
+ 
+- Generate the transaction for related operations
+- Enforce concurrency with the related mechanism
+
+---
