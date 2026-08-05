@@ -1,14 +1,26 @@
 ---
-name: update-erd-logical
-description: Update the ERD and relational schema to incorporate business requirements change while preserving the existing database design.
+name: schema-migration
+description: Generate SQL migration scripts to evolve the old database schema while preserving existing data whenever possible.
 compatibility: opencode
 ---
 
-# Update ERD and Logical Schema Skill
+# Schema Migration Skill
 
 ## Objective
 
+* Compare the Phase 1 database implementation with the updated Phase 2 logical design.
 
+* Identify every schema change required to evolve the database.
+
+* Generate an idempotent Microsoft SQL Server migration script.
+
+* Preserve existing data whenever possible.
+
+* Implement newly introduced business constraints that belong to the schema layer.
+
+* Exclude concurrency control mechanisms, which belong to the Concurrency Design stage.
+
+* Produce a production-ready migration script following Microsoft SQL Server best practices.
 
 ---
 
@@ -16,13 +28,13 @@ compatibility: opencode
 
 Read the following files:
 
-* `outputs/02-erd-design-G7.md`
-* `outputs/03-logical-design-G7.md`
+* `outputs/05-db-implementation-G7.sql`
 * `outputs/08-req-change-analysis-G7.md`
+* `outputs/09-updated-erd-and-logical-design-G7.md`
 
 If an existing analysis already exists, also read:
 
-* `outputs/09-updated-erd-and-logical-design-G7.md`
+* `outputs/10-schema-migration-G7.md`
 
 Do not read unrelated files unless explicitly requested.
 
@@ -32,9 +44,9 @@ Do not read unrelated files unless explicitly requested.
 
 The following file must exist:
 
-* `outputs/02-erd-design-G7.md`
-* `outputs/03-logical-design-G7.md`
+* `outputs/05-db-implementation-G7.sql`
 * `outputs/08-req-change-analysis-G7.md`
+* `outputs/09-updated-erd-and-logical-design-G7.md`
 
 If missing:
 
@@ -47,13 +59,13 @@ If missing:
 
 Create or update:
 
-`outputs/09-updated-erd-and-logical-design-G7.md`
+* `outputs/10-schema-migration-G7.md`
 
 ---
 
 ## Error Handling
 
-If `outputs/02-erd-design-G7.md`, `outputs/03-logical-design-G7.md` and `outputs/08-req-change-analysis-G7.md` do not exist:
+If `outputs/05-db-implementation-G7.sql`, `outputs/08-req-change-analysis-G7.md` and `outputs/09-updated-erd-and-logical-design-G7.md` do not exist:
 
 * Stop execution.
 * Report the missing file.

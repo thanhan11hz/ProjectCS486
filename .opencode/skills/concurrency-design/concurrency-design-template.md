@@ -63,17 +63,29 @@ Explain how concurrent execution may violate the business rule.
 
 ---
 
-### Recommended SQL Server Mechanism
+### Recommended SQL Server Concurrency Mechanism
 
-Specify:
+Recommend only the mechanisms actually required.
 
-- Isolation Level (if applicable)
-- Locking Hint (if applicable)
+Mechanisms only include:
+
+- Isolation Level (if required)
+- Locking Hint (if required)
 
 Example:
 
-- Isolation Level: SERIALIZABLE
+- Isolation Level: READ COMMITTED
+- Locking Hint: UPDLOCK + HOLDLOCK
+
+or
+
 - Locking Hint: UPDLOCK
+
+or
+
+- Isolation Level: SERIALIZABLE
+
+If a mechanism is unnecessary, omit it instead of providing a placeholder.
 
 ---
 
@@ -82,9 +94,9 @@ Example:
 Explain:
 
 - Why the selected mechanism prevents the conflict.
-- Why weaker isolation levels are insufficient.
-- Performance considerations.
-- Why this mechanism is appropriate for this scenario.
+- Why weaker mechanisms (if any) are insufficient.
+- Why stronger mechanisms are unnecessary (if applicable).
+- Expected impact on concurrency and performance.
 
 ---
 
@@ -108,8 +120,9 @@ Explain:
 
 | Conflict | Business Rule(s) | Recommended Mechanism | Reason |
 |-----------|------------------|-----------------------|--------|
-| CC-01 | BR-xx | SERIALIZABLE + UPDLOCK | Prevent phantom booking |
-| CC-02 | BR-xx | READ COMMITTED + UPDLOCK | Prevent lost update |
+| CC-01 | BR-xx | UPDLOCK + HOLDLOCK | Prevent check-then-act race on booking availability |
+| CC-02 | BR-xx | UPDLOCK | Prevent lost update |
+| CC-03 | BR-xx | READ COMMITTED | Reading committed data is sufficient |
 | ... | ... | ... | ... |
 
 ---
@@ -120,20 +133,20 @@ List assumptions made during the analysis.
 
 Example:
 
-- Maintenance updates are executed within a single transaction.
-- Booking approval is performed by one staff member at a time.
-- The application always uses transactional operations.
+- Maintenance updates execute within a single transaction.
+- Booking approval is completed within one transaction.
+- All operations follow the application's transactional boundaries.
 
 ---
 
 # 6. Open Questions
 
-List ambiguities or business questions that require clarification.
+List ambiguities or business questions requiring clarification.
 
 Example:
 
 - Can advisory maintenance be modified while bookings are being approved?
-- Should concurrent booking approvals be serialized across the entire space or only overlapping time periods?
+- Should booking availability be protected per space or per overlapping time period?
 
 ---
 
@@ -143,5 +156,5 @@ Summarize:
 
 - Major concurrency risks identified.
 - Business rules protected.
-- Recommended SQL Server mechanisms.
+- Recommended SQL Server concurrency mechanisms.
 - Overall concurrency design strategy.

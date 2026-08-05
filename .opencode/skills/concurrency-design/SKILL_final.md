@@ -16,7 +16,7 @@ compatibility: opencode
 
 * Analyze the business rules and invariants threatened by each conflict.
 
-* Recommend appropriate Microsoft SQL Server concurrency control mechanisms for each conflict.
+* Recommend appropriate Microsoft SQL Server concurrency mechanisms for each conflict, using the least restrictive mechanism that preserves the required business invariant.
 
 * Produce a structured concurrency design document that serves as the foundation for implementing transactional consistency.
 
@@ -131,39 +131,33 @@ Describe conflicts using realistic business workflows rather than theoretical da
 
 ### Rule SQL1 — SQL Server Specific
 
-Recommend only Microsoft SQL Server concurrency mechanisms.
+Acceptable mechanisms include, but are not limited to:
 
-Acceptable mechanisms include:
-
-Isolation Levels
+### Isolation Levels (when required)
 
 * READ COMMITTED
 * REPEATABLE READ
 * SERIALIZABLE
 
-Locking Hints
+### Locking Hints (when appropriate)
 
-* READCOMMITED
 * UPDLOCK
 * HOLDLOCK
-
-Avoid generic recommendations such as:
-
-* "use transactions"
-* "lock the table"
-* "prevent race conditions"
+* READCOMMITTEDLOCK
 
 ---
 
 ### Rule SQL2 — Mechanism Selection
 
-Select the least restrictive mechanism that completely preserves the required business invariant.
+When multiple mechanisms are possible, recommend the least restrictive mechanism that preserves the required business invariant.
 
-When evaluating a mechanism, explain:
+Possible mechanisms include:
 
-* Why it prevents the conflict.
-* Why weaker mechanisms are insufficient.
-* Expected impact on concurrency and performance.
+* appropriate locking hints;
+* transaction isolation levels;
+* or a combination of both.
+
+Only recommend an isolation level when it contributes to preserving the required invariant beyond SQL Server's default behavior.
 
 ---
 
@@ -333,8 +327,8 @@ Do not omit any required section.
 * Concurrent operations are not limited to INSERT operations.
 * Every conflict identifies the shared business resource.
 * Every conflict identifies the affected business invariant.
-* Every recommendation specifies an exact SQL Server concurrency mechanism.
-* Every recommendation explains why weaker mechanisms are insufficient.
+* Every recommendation specifies the SQL Server mechanism(s) required to preserve the business invariant.
+* Isolation levels are included only when they materially contribute to correctness.
 * No SQL implementation is included.
 * No pseudo code is included.
 * No trigger or stored procedure implementation is included.
