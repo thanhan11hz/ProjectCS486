@@ -1,15 +1,30 @@
 -- ============================================================================
 -- CC-02 -- SESSION 1 (WITHOUT enforcement)  [staff approval path]
--- Same scenario as the with-enforcement test. Because the approval re-validation
--- is a plain unlocked read that releases its lock immediately, it can pass the
--- availability check even while Session 2's instant booking is concurrently
--- committing an overlapping booking.
+-- Session 2 (instant booking) starts FIRST and passes its unlocked availability
+-- check against an empty window, then commits its approved booking. This session
+-- waits 3s, prepares a PENDING booking for the same space/period and approves it
+-- with the UNLOCKED procedure. The approval's re-validation passes because Session
+-- 2's instant booking is not yet committed/visible; the approval then commits a
+-- SECOND approved booking that overlaps Session 2's. Both approved bookings exist
+-- for the same space -- BR-14 / BR-50 is violated across the two booking paths.
+--
+-- Run this in Query window 1, then session-2.sql in Query window 2 (Session 2 must
+-- start first, as in the enforcement variant).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
+SET NOCOUNT ON;
+GO
 
-IF NOT EXISTS (SELECT 1 FROM dbo.spaces WHERE space_code = N'X-100')
-    INSERT INTO dbo.spaces (space_code, space_type) VALUES (N'X-100', N'classroom');
+-- Clean the test space for a deterministic run.
+DELETE a FROM dbo.approvals a
+  JOIN dbo.bookings b ON b.booking_id = a.booking_id
+ WHERE b.space_code = N'X-100';
+DELETE s FROM dbo.sessions s
+  JOIN dbo.bookings b ON b.booking_id = s.booking_id
+ WHERE b.space_code = N'X-100';
+DELETE FROM dbo.bookings WHERE space_code = N'X-100';
+DELETE FROM dbo.maintenance_records WHERE space_code = N'X-100';
 GO
 
 DECLARE @pending_id INT;
@@ -21,15 +36,17 @@ VALUES
      N'seminar', 25, N'pending');
 SET @pending_id = SCOPE_IDENTITY();
 PRINT N'Prepared pending booking #' + CAST(@pending_id AS VARCHAR(20));
-
-WAITFOR DELAY '00:00:03';
-
 PRINT 'Session 1: staff approves the pending booking.';
+
+-- @pending_id must stay in the same batch as the EXEC (T-SQL variables do not
+-- survive a GO batch separator).
 EXEC dbo.usp_approve_pending_booking
     @booking_id   = @pending_id,
     @approver_id  = N'FM-301';
 GO
 
+-- With enforcement absent, this approval COMMITS even though Session 2's instant
+-- booking for the same space/period was already approved: two overlapping rows.
 SELECT booking_id, requester_id, space_code, requested_start_time,
        requested_end_time, status
   FROM dbo.bookings

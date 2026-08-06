@@ -4,6 +4,7 @@ The generated output should follow the folder structure below.
 
 ```text
 outputs/13-concurrency-tests-G7/
+    ├── data-init.sql
     ├── set-up-guide.md
     ├── <conflict-1>/
     │   ├── with-concurrency-enforcement/

@@ -1,18 +1,23 @@
 -- ============================================================================
 -- CC-04 -- SESSION 2 (WITH enforcement)  [advisory recording side]
--- A staff member records a NEW advisory maintenance record for space X-100 that
--- covers the period of Session 1's booking. Because usp_record_maintenance also
--- takes the space-row UPDLOCK + HOLDLOCK, this recording blocks until Session 1's
--- booking snapshot + acknowledgement commits. Result: if the advisory had
--- committed before the snapshot it is acknowledged; otherwise it lands after the
--- acknowledgement and is outside the booking-time window. No booking can carry a
--- NULL acknowledgement while the advisory was active at booking time.
--- Launch this while Session 1 is waiting at its WAITFOR DELAY.
+-- A staff member records a NEW advisory maintenance record for space X-100
+-- covering the period of Session 1's booking (08:00-12:00). Because
+-- usp_record_maintenance also takes the space-row UPDLOCK + HOLDLOCK, this
+-- recording BLOCKS behind Session 1's pending booking (which is inside the
+-- WAITFOR DELAY between its INSERT and COMMIT). Only after the booking commits
+-- does the advisory record commit -- so it lands AFTER the booking's
+-- acknowledgement and is outside the booking-time window (Q-05). No booking ever
+-- carries a NULL acknowledgement while an advisory was active at booking time.
+--
+-- Launch this in Query window 2 one second after session-1.sql is started.
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
+SET NOCOUNT ON;
+GO
 
 WAITFOR DELAY '00:00:02';
+GO
 
 PRINT 'Session 2: record advisory maintenance 08:00-12:00 for space X-100.';
 EXEC dbo.usp_record_maintenance
@@ -24,6 +29,8 @@ EXEC dbo.usp_record_maintenance
     @impact_level        = N'advisory';
 GO
 
+-- The advisory was recorded AFTER Session 1's booking committed (it blocked
+-- behind the space lock).
 SELECT maintenance_id, space_code, impact_level, status, start_time, completion_time
   FROM dbo.maintenance_records
  WHERE space_code = N'X-100'

@@ -20,6 +20,8 @@ The output will be used to contrast the operation with and without concurrency e
 ## Required Input Files
 
 Read the following file:
+* `outputs/05-db-implementation-G7.sql`
+* `outputs/10-schema-migration-G7.sql`
 * `outputs/11-concurrency-design-G7.md` 
 * `outputs/12-concurrency-implementation-G7.sql`
 * `.opencode/skills/concurrency-test/concurrency-test-template.md`
@@ -35,6 +37,8 @@ Do not read any other unrelated files unless explicitly requested.
 ## Prerequisites
 
 The following file must exist:
+* `outputs/05-db-implementation-G7.sql`
+* `outputs/10-schema-migration-G7.sql`
 * `outputs/11-concurrency-design-G7.md` 
 * `outputs/12-concurrency-implementation-G7.sql`
 * `.opencode/skills/concurrency-test/concurrency-test-template.md`
@@ -61,10 +65,14 @@ Do not omit any required section.
 
 From the input files, read and understand each concurrency conflict, related operation, and how its enforcement is implemented in SQL script
 
-## Step 2: Generate Concurrency Test Cases
+## Step 2: Data Initialization
 
-**Note:** SQL script are for SQL Server.
-**IMPORTANT:** To simulate each conflict scenario, for each case with and without concurrency enforcement, create 2  separate SQL script files, so that they can be run in 2 separate sessions to recreate the respective conflict scenario. **Remember** to insert **DELAY statements**  so the two scripts can be executed concurrently and reliably reproduce the intended scenario.
+Based on the tables created in `outputs/05-db-implementation-G7.sql` and `outputs/10-schema-migration-G7.sql`, prepare the initial data to run the experiment
+
+## Step 3: Generate Concurrency Test Cases
+
+**Note:** SQL script are for SQL Server. **RAISERROR** does not accept an expression for the message parameter, so the meassage should not be separated into sum of multiple strings.
+**IMPORTANT:** To simulate each conflict scenario, for each case with and without concurrency enforcement, create 2  separate SQL script files, so that they can be run in 2 separate sessions to recreate the respective conflict scenario. **Remember** to insert **DELAY statements**  to the procedure between check and data modification, instead of inserting to the testing SQL scripts. The **INSERT** statement must be compatible with initial data in Step 2.
 
 Create a separate subfolder for each concurrency conflict.
 

@@ -1,18 +1,34 @@
 -- ============================================================================
 -- CC-02 -- SESSION 1 (WITH enforcement)  [staff approval path]
--- Prepares a pending booking for space X-100 (09:00-11:00) and then approves
--- it. Session 2 simultaneously submits an instant booking for the same space
--- and period. Both paths share the space-row UPDLOCK + HOLDLOCK, so only one of
--- them commits as an approved booking (BR-50).
+-- Session 2 (instant booking) starts FIRST and holds the space-row lock while it
+-- waits inside its procedure. This session waits 3s, prepares a PENDING booking
+-- for the same space/period, then attempts to approve it. The approval procedure
+-- re-validates availability under the SAME space-row UPDLOCK + HOLDLOCK, so it
+-- BLOCKS behind Session 2's instant booking. When Session 2 commits, Session 1
+-- re-reads the fresh state, finds the approved instant booking and is REJECTED
+-- (BR-14 / BR-50). Only ONE approved booking exists.
+--
+-- Run this in Query window 1, then run session-2.sql in Query window 2 straight
+-- away (Session 2 must start BEFORE this session reaches its EXEC, so it gets the
+-- space lock first).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
-
--- Prepare a pending booking that Session 1 will approve.
-IF NOT EXISTS (SELECT 1 FROM dbo.spaces WHERE space_code = N'X-100')
-    INSERT INTO dbo.spaces (space_code, space_type) VALUES (N'X-100', N'classroom');
+SET NOCOUNT ON;
 GO
 
+-- Clean the test space for a deterministic run.
+DELETE a FROM dbo.approvals a
+  JOIN dbo.bookings b ON b.booking_id = a.booking_id
+ WHERE b.space_code = N'X-100';
+DELETE s FROM dbo.sessions s
+  JOIN dbo.bookings b ON b.booking_id = s.booking_id
+ WHERE b.space_code = N'X-100';
+DELETE FROM dbo.bookings WHERE space_code = N'X-100';
+DELETE FROM dbo.maintenance_records WHERE space_code = N'X-100';
+GO
+
+-- Prepare the pending booking that Session 1 will (try to) approve.
 DECLARE @pending_id INT;
 INSERT INTO dbo.bookings
     (requester_id, space_code, requested_start_time, requested_end_time,
@@ -22,16 +38,17 @@ VALUES
      N'seminar', 25, N'pending');
 SET @pending_id = SCOPE_IDENTITY();
 PRINT N'Prepared pending booking #' + CAST(@pending_id AS VARCHAR(20));
+PRINT 'Session 1: staff approves the pending booking (expect BR-14/BR-50 rejection).';
 
--- Give Session 2 a chance to start before we acquire the space lock.
-WAITFOR DELAY '00:00:03';
-
-PRINT 'Session 1: staff approves the pending booking.';
+-- @pending_id must stay in the same batch as the EXEC (T-SQL variables do not
+-- survive a GO batch separator).
 EXEC dbo.usp_approve_pending_booking
     @booking_id   = @pending_id,
     @approver_id  = N'FM-301';
 GO
 
+-- Final state: exactly ONE approved booking (Session 2's). The pending booking
+-- from this session remains pending (its approval was rejected).
 SELECT booking_id, requester_id, space_code, requested_start_time,
        requested_end_time, status
   FROM dbo.bookings

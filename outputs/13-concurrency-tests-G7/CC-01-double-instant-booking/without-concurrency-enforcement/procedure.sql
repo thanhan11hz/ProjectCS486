@@ -2,9 +2,16 @@
 -- CC-01 -- WITHOUT concurrency enforcement
 -- Procedure: usp_submit_instant_booking with all isolation-level statements and
 -- locking hints REMOVED. The space row is read with a plain READ COMMITTED
--- SELECT (no UPDLOCK, no HOLDLOCK), so the availability check releases
--- immediately and two concurrent instant bookings can both pass the empty
--- window and both commit -- reproducing the double-booking conflict (BR-14).
+-- SELECT (no UPDLOCK, no HOLDLOCK), so the availability check acquires no
+-- persistent lock and two concurrent instant bookings can BOTH pass the "empty"
+-- window and BOTH commit -- reproducing the double-booking conflict (BR-14).
+--
+-- The WAITFOR DELAY is kept between the availability check and the INSERT so the
+-- two sessions overlap inside the check -> act window WITHOUT holding any lock;
+-- Session 2's check reads Session 1's uncommitted booking as invisible
+-- (READ COMMITTED) and passes.
+--
+-- All RAISERROR messages are single string literals (no expression arguments).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
@@ -26,10 +33,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- (locking hint REMOVED) -- plain read of the space row.
+        -- Plain READ COMPUTED read (locking hint REMOVED) - no lock retained.
         DECLARE @space_holder VARCHAR(20);
         SELECT @space_holder = s.space_code
-          FROM dbo.spaces s
+          FROM dbo.spaces s                             -- (locking hint removed)
          WHERE s.space_code = @space_code;
 
         -- BR-49 eligibility check.
@@ -40,8 +47,7 @@ BEGIN
                AND space_type IN (N'classroom', N'meeting_room')
         )
         BEGIN
-            RAISERROR(N'BR-49: this space type is not eligible for instant '
-                      + N'booking.', 16, 1);
+            RAISERROR(N'BR-49: this space type is not eligible for instant booking.', 16, 1);
             ROLLBACK;
             RETURN;
         END
@@ -63,7 +69,7 @@ BEGIN
             RETURN;
         END
 
-        -- BR-45/BR-46 advisory snapshot.
+        -- BR-45 / BR-46 advisory snapshot.
         DECLARE @advisory_count INT = 0;
         SELECT @advisory_count = COUNT(*)
           FROM dbo.maintenance_records m
@@ -73,22 +79,29 @@ BEGIN
            AND @requested_end_time > m.start_time
            AND (m.completion_time IS NULL OR @requested_start_time < m.completion_time);
 
-        -- BR-14/BR-50 availability check (the contested statement, now unlocked).
+        -- BR-14 / BR-50 availability check (the contested statement, now UNLOCKED).
+        -- Counts ONLY approved bookings (BR-14): a pending request does not
+        -- reserve the space and must not block another request.
         IF EXISTS
         (
             SELECT 1
               FROM dbo.bookings b
              WHERE b.space_code = @space_code
-               AND b.status IN (N'approved', N'pending')
+               AND b.status = N'approved'
                AND b.requested_end_time > @requested_start_time
                AND b.requested_start_time < @requested_end_time
         )
         BEGIN
-            RAISERROR(N'BR-14/BR-50: a conflicting booking already overlaps '
-                      + N'the requested period for this space.', 16, 1);
+            RAISERROR(N'BR-14/BR-50: a conflicting booking already overlaps the requested period for this space.', 16, 1);
             ROLLBACK;
             RETURN;
         END
+
+        -- ===== TEST HOOK =====
+        -- Hold the transaction open after the check with NO lock held, so a
+        -- concurrent instant booking reads the same pre-commit "empty" window
+        -- and both proceed to INSERT. Remove for production.
+        WAITFOR DELAY '00:00:05';
 
         DECLARE @new_booking_id INT;
         INSERT INTO dbo.bookings

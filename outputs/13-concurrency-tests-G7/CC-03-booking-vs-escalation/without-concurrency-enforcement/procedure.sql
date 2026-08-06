@@ -1,21 +1,34 @@
 -- ============================================================================
 -- CC-03 -- WITHOUT concurrency enforcement
--- Procedures: usp_submit_booking_pending + usp_escalate_maintenance_impact with
--- all isolation-level statements and locking hints REMOVED. The booking's BR-44
--- check and the escalation's update-and-identify now use plain unlocked reads,
--- so the escalation can commit between the booking's BR-44 check and its commit
--- (the booking is created on an out-of-service space) or the BR-48 identification
--- can miss a concurrently committed booking -- reproducing CC-03.
+-- Procedures: usp_submit_instant_booking + usp_escalate_maintenance_impact with
+-- all isolation-level statements and locking hints REMOVED.
+--
+-- The TEST HOOK delays are kept (between INSERT and COMMIT in the booking, and
+-- between the UPDATE and the BR-48 identification in the escalation) so the two
+-- sessions overlap in exactly the window that exposes the race. Because no lock
+-- is held:
+--   * the booking's INSERT + BR-44 trigger run while the maintenance is still
+--     advisory, and its COMMIT is delayed;
+--   * the escalation's UPDATE commits and its BR-48 identification runs BEFORE
+--     the booking commits, so the identification MISSES the still-uncommitted
+--     approved booking; that booking then commits after -- an approved booking
+--     now overlaps the out-of-service maintenance period that was not identified
+--     (BR-48), i.e. the CC-03 conflict is reproduced.
+--
+-- All RAISERROR messages are single string literals (no expression arguments).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
-IF OBJECT_ID(N'dbo.usp_submit_booking_pending', N'P') IS NOT NULL
-    DROP PROCEDURE dbo.usp_submit_booking_pending;
+IF OBJECT_ID(N'dbo.usp_submit_instant_booking', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.usp_submit_instant_booking;
 IF OBJECT_ID(N'dbo.usp_escalate_maintenance_impact', N'P') IS NOT NULL
     DROP PROCEDURE dbo.usp_escalate_maintenance_impact;
 GO
 
-CREATE PROCEDURE dbo.usp_submit_booking_pending
+-- ----------------------------------------------------------------------------
+-- usp_submit_instant_booking  (OP-01, CC-03 booking side, no locking)
+-- ----------------------------------------------------------------------------
+CREATE PROCEDURE dbo.usp_submit_instant_booking
     @requester_id          VARCHAR(50),
     @space_code            VARCHAR(20),
     @requested_start_time  DATETIME2,
@@ -32,8 +45,20 @@ BEGIN
 
         DECLARE @space_holder VARCHAR(20);
         SELECT @space_holder = s.space_code
-          FROM dbo.spaces s                                    -- (hint removed)
+          FROM dbo.spaces s                             -- (locking hint removed)
          WHERE s.space_code = @space_code;
+
+        IF NOT EXISTS
+        (
+            SELECT 1 FROM dbo.spaces
+             WHERE space_code = @space_code
+               AND space_type IN (N'classroom', N'meeting_room')
+        )
+        BEGIN
+            RAISERROR(N'BR-49: this space type is not eligible for instant booking.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
 
         IF EXISTS
         (
@@ -60,34 +85,51 @@ BEGIN
            AND @requested_end_time > m.start_time
            AND (m.completion_time IS NULL OR @requested_start_time < m.completion_time);
 
+        -- BR-14 / BR-50 availability check (unlocked read). Counts ONLY approved
+        -- bookings (BR-14); a pending request does not reserve the space.
         IF EXISTS
         (
             SELECT 1
               FROM dbo.bookings b
              WHERE b.space_code = @space_code
-               AND b.status IN (N'approved', N'pending')
+               AND b.status = N'approved'
                AND b.requested_end_time > @requested_start_time
                AND b.requested_start_time < @requested_end_time
         )
         BEGIN
-            RAISERROR(N'BR-14/BR-50: a conflicting booking already exists.', 16, 1);
+            RAISERROR(N'BR-14/BR-50: a conflicting booking already overlaps the requested period for this space.', 16, 1);
             ROLLBACK;
             RETURN;
         END
 
+        DECLARE @new_booking_id INT;
         INSERT INTO dbo.bookings
             (requester_id, space_code, requested_start_time, requested_end_time,
              purpose, expected_participants, status, advisory_acknowledged)
         VALUES
             (@requester_id, @space_code, @requested_start_time,
              @requested_end_time, @purpose, @expected_participants,
-             N'pending',
-             CASE WHEN @advisory_count = 0 THEN NULL ELSE 1 END);
+             N'approved',
+             CASE WHEN @advisory_count > 0 THEN 1 ELSE NULL END);
 
-        DECLARE @booking INT = SCOPE_IDENTITY();
+        SET @new_booking_id = SCOPE_IDENTITY();
+
+        DECLARE @approver VARCHAR(50) =
+            (SELECT TOP 1 user_id FROM dbo.users
+              WHERE role = N'facility_manager' ORDER BY user_id);
+
+        INSERT INTO dbo.approvals (booking_id, approver_id, decision, decision_time)
+        VALUES (@new_booking_id, ISNULL(@approver, @requester_id),
+                N'approved', SYSDATETIME());
+
+        -- ===== TEST HOOK ===== (NO lock held; the escalation can commit and run
+        -- its identification in this window, while this booking stays uncommitted).
+        WAITFOR DELAY '00:00:05';
 
         COMMIT TRANSACTION;
-        PRINT N'Booking #' + CAST(@booking AS VARCHAR(40)) + N' recorded as pending.';
+
+        PRINT N'Instant booking ' + CAST(@new_booking_id AS VARCHAR(40))
+              + N' approved and recorded.';
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
@@ -96,6 +138,9 @@ BEGIN
 END;
 GO
 
+-- ----------------------------------------------------------------------------
+-- usp_escalate_maintenance_impact  (OP-05, CC-03 escalation side, no locking)
+-- ----------------------------------------------------------------------------
 CREATE PROCEDURE dbo.usp_escalate_maintenance_impact
     @maintenance_id INT,
     @staff_id       VARCHAR(50)
@@ -143,6 +188,12 @@ BEGIN
            SET impact_level = N'out_of_service'
          WHERE maintenance_id = @maintenance_id
            AND status IN (N'reported', N'in_progress');
+
+        -- ===== TEST HOOK =====
+        -- Hold the transaction open between the escalation UPDATE and the BR-48
+        -- identification. Without the space lock, the concurrent booking can
+        -- commit right after this identification read -> it is MISSED.
+        WAITFOR DELAY '00:00:03';
 
         -- BR-48 identification read (now unlocked; may miss a concurrent booking).
         SELECT b.booking_id, b.requester_id, u.email,

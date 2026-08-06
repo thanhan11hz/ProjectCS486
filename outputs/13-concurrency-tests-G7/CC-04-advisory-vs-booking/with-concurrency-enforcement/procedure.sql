@@ -2,15 +2,24 @@
 -- CC-04 -- ADVISORY MAINTENANCE RECORDING RACING WITH BOOKING ACKNOWLEDGEMENT
 -- Variant: WITH concurrency enforcement
 -- Procedures: usp_submit_booking_pending + usp_record_maintenance in the
--- enforcement form (copied verbatim from outputs/12-concurrency-implementation
--- -G7.sql).
+-- enforcement form (copied from outputs/12-concurrency-implementation-G7.sql)
+-- with TEST HOOK delays:
+--   * usp_submit_booking_pending: WAITFOR DELAY between the INSERT and the
+--     COMMIT. For THIS conflict the vulnerable window is exactly there: the
+--     BR-46 trigger validates the acknowledgement at INSERT time (no advisory
+--     exists yet); the race is that an advisory may be recorded between that
+--     INSERT and the booking's COMMIT. The delay keeps the booking's
+--     UPDLOCK + HOLDLOCK on the space row held across the whole window.
+--   * usp_record_maintenance: WAITFOR DELAY between the space-row lock
+--     acquisition and the INSERT.
 --
---   * usp_submit_booking_pending holds the space-row UPDLOCK + HOLDLOCK while it
---     captures the advisory snapshot and records the acknowledgement.
---   * usp_record_maintenance takes the space-row UPDLOCK + HOLDLOCK too.
--- The two serialize on the space row: an advisory commits either BEFORE the
--- booking's snapshot (then it is included in the notification, BR-45/BR-46) or
--- AFTER the booking's acknowledgement (outside the booking-time window, Q-05).
+-- Both procedures take the space-row UPDLOCK + HOLDLOCK, so they serialize: an
+-- advisory commits either BEFORE the booking's snapshot (then it is included in
+-- the notification, BR-45/BR-46) or AFTER the booking's acknowledgement (outside
+-- the booking-time window, Q-05). In this scenario the booking commits first, so
+-- the advisory lands after the acknowledgement -> no violation.
+--
+-- All RAISERROR messages are single string literals (no expression arguments).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
@@ -39,12 +48,13 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Serialization point held for the whole transaction.
         DECLARE @space_holder VARCHAR(20);
         SELECT @space_holder = s.space_code
           FROM dbo.spaces s WITH (UPDLOCK, HOLDLOCK)
          WHERE s.space_code = @space_code;
 
-        -- BR-44 out-of-service check.
+        -- BR-44: no overlapping active out-of-service maintenance.
         IF EXISTS
         (
             SELECT 1
@@ -61,7 +71,7 @@ BEGIN
             RETURN;
         END
 
-        -- BR-45/BR-46: advisory snapshot under the SAME space lock.
+        -- BR-45/BR-46: snapshot active advisories under the same space lock.
         DECLARE @advisory_count INT = 0;
         SELECT @advisory_count = COUNT(*)
           FROM dbo.maintenance_records m
@@ -71,13 +81,15 @@ BEGIN
            AND @requested_end_time > m.start_time
            AND (m.completion_time IS NULL OR @requested_start_time < m.completion_time);
 
-        -- BR-14 pre-check.
+        -- BR-14 pre-check. Counts ONLY approved bookings (BR-14); a pending
+        -- request does not reserve the space, so several overlapping pending
+        -- requests may be recorded; the conflict is resolved at approval time.
         IF EXISTS
         (
             SELECT 1
               FROM dbo.bookings b
              WHERE b.space_code = @space_code
-               AND b.status IN (N'approved', N'pending')
+               AND b.status = N'approved'
                AND b.requested_end_time > @requested_start_time
                AND b.requested_start_time < @requested_end_time
         )
@@ -97,6 +109,14 @@ BEGIN
              CASE WHEN @advisory_count = 0 THEN NULL ELSE 1 END);
 
         DECLARE @booking INT = SCOPE_IDENTITY();
+
+        -- ===== TEST HOOK =====
+        -- Hold the transaction open AFTER the booking was inserted (BR-46 trigger
+        -- validated the NULL acknowledgement while no advisory existed) but BEFORE
+        -- it commits. The space-row UPDLOCK + HOLDLOCK is still held, so the
+        -- concurrent advisory recording cannot commit in this window. Remove for
+        -- production.
+        WAITFOR DELAY '00:00:05';
 
         COMMIT TRANSACTION;
         PRINT N'Booking #' + CAST(@booking AS VARCHAR(40)) + N' recorded as pending.';
@@ -128,10 +148,18 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Take the space-row lock so this maintenance state change serializes
+        -- against any in-flight booking creation for the space (CC-04).
         DECLARE @space_holder VARCHAR(20);
         SELECT @space_holder = s.space_code
           FROM dbo.spaces s WITH (UPDLOCK, HOLDLOCK)
          WHERE s.space_code = @space_code;
+
+        -- ===== TEST HOOK =====
+        -- Hold the space lock before inserting the maintenance record, so the
+        -- recording cannot commit between a booking's advisory snapshot and its
+        -- acknowledgement. Remove for production.
+        WAITFOR DELAY '00:00:03';
 
         INSERT INTO dbo.maintenance_records
             (reporter_id, space_code, assigned_staff_id,

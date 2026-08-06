@@ -35,6 +35,8 @@ exactly the interleaving that exposes the target conflict.
    :r C:\...\outputs\05-db-implementation-G7.sql
    -- Phase 2 migration
    :r C:\...\outputs\10-schema-migration-G7.sql
+   -- Concurrency-test reference data (users + test space X-100)
+   :r C:\...\outputs\13-concurrency-tests-G7\data-init.sql
    -- Optional realistic baseline data
    :r C:\...\outputs\06-sample-data-G7.sql
    ```
@@ -55,7 +57,7 @@ exactly the interleaving that exposes the target conflict.
 ## 4. How to run a scenario in SSMS
 
 For every scenario, open **two** separate Query windows connected to the same
-`CS_486_Booking_System` database.
+`CS486_Booking_System` database.
 
 1. Run `procedure.sql` in a separate window (or deploy it once) to create the
    version of the procedure used by the test.

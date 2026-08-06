@@ -5,6 +5,13 @@
 -- level is read with a plain unlocked SELECT; two concurrent level changes
 -- therefore read the SAME "advisory", both write their own value, and the LAST
 -- WRITER silently overwrites the OTHER's committed decision (lost update, BR-47).
+--
+-- A WAITFOR DELAY TEST HOOK is inserted between reading the impact level and the
+-- UPDATE in BOTH procedures, so the two sessions overlap inside the read -> write
+-- window while holding NO lock: Session 2 reads the same "advisory" value that
+-- Session 1 read, and the two commits overwrite each other.
+--
+-- All RAISERROR messages are single string literals (no expression arguments).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
@@ -57,6 +64,12 @@ BEGIN
             RETURN;
         END;
 
+        -- ===== TEST HOOK =====
+        -- Hold the read -> write window open with NO lock held, so the concurrent
+        -- downgrade reads the SAME "advisory" value and both decisions overwrite
+        -- one another (lost update). Remove for production.
+        WAITFOR DELAY '00:00:05';
+
         UPDATE dbo.maintenance_records
            SET impact_level = N'out_of_service'
          WHERE maintenance_id = @maintenance_id
@@ -91,11 +104,16 @@ BEGIN
 
         IF @status = N'completed'
         BEGIN
-            RAISERROR(N'BR-47: the impact level of a completed maintenance '
-                      + N'record cannot be changed.', 16, 1);
+            RAISERROR(N'BR-47: the impact level of a completed maintenance record cannot be changed. Downgrade is only allowed while the record is open.', 16, 1);
             ROLLBACK;
             RETURN;
         END;
+
+        -- ===== TEST HOOK =====
+        -- Hold the read -> write window open with NO lock held, so the concurrent
+        -- escalation reads the SAME "advisory" value and the two writes lose one
+        -- another (lost update). Remove for production.
+        WAITFOR DELAY '00:00:05';
 
         UPDATE dbo.maintenance_records
            SET impact_level = N'advisory'

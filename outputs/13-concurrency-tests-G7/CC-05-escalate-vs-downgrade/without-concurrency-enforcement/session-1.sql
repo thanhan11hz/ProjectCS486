@@ -8,9 +8,13 @@
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
+SET NOCOUNT ON;
+GO
 
-IF NOT EXISTS (SELECT 1 FROM dbo.spaces WHERE space_code = N'X-100')
-    INSERT INTO dbo.spaces (space_code, space_type) VALUES (N'X-100', N'classroom');
+-- Clean the test space for a deterministic run (test space X-100 is created by
+-- data-init.sql; bookings are removed before maintenance for FK safety).
+DELETE FROM dbo.bookings WHERE space_code = N'X-100';
+DELETE FROM dbo.maintenance_records WHERE space_code = N'X-100';
 GO
 
 DECLARE @mtn_id INT;
@@ -23,12 +27,16 @@ VALUES
 SET @mtn_id = SCOPE_IDENTITY();
 PRINT N'Prepared advisory record maintenance_id = ' + CAST(@mtn_id AS VARCHAR(20));
 
-WAITFOR DELAY '00:00:03';
+-- Start the escalation promptly (1s) so Session 2 (delay 2s) reads the same
+-- "advisory" value while Session 1 is inside its read -> write WAITFOR DELAY.
+WAITFOR DELAY '00:00:01';
 
 PRINT 'Session 1: escalate maintenance to out-of-service.';
 EXEC dbo.usp_escalate_maintenance_impact @maintenance_id = @mtn_id, @staff_id = N'FM-502';
 GO
 
+-- With no enforcement, the final level reflects whichever writer committed last
+-- (here Session 2's downgrade overwrites this escalation) -- a lost update.
 SELECT maintenance_id, impact_level, status, start_time, completion_time
   FROM dbo.maintenance_records
  WHERE space_code = N'X-100'

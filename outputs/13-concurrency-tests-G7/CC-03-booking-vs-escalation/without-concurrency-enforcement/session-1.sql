@@ -1,17 +1,31 @@
 -- ============================================================================
 -- CC-03 -- SESSION 1 (WITHOUT enforcement)  [booking creation side]
--- Space X-100 has an advisory maintenance record covering 08:00-12:00. This
--- session submits a pending booking for 09:00-11:00 while Session 2 escalates
--- the advisory to out-of-service. With locking removed, the booking's BR-44
--- check may run against the pre-escalation state and commit AFTER the
--- escalation -- producing a booking on a now-out-of-service space (BR-44
--- violation) that the escalation's identification also failed to report (BR-48).
+-- Space X-100 has an ADVISORY maintenance record covering 08:00-12:00. This
+-- session submits an INSTANT (approved) booking for 09:00-11:00. With the
+-- UNLOCKED procedure, the booking's INSERT (and its BR-44 trigger) run while the
+-- maintenance is still advisory, and the booking's COMMIT is delayed inside the
+-- procedure. Session 2's escalation consequently commits and completes its BR-48
+-- identification BEFORE this booking commits, so the identification MISSES it.
+-- When this session finally commits, an approved booking exists that overlaps a
+-- now-out-of-service maintenance period and was never reported by the escalation
+-- (BR-48) -- the CC-03 conflict is reproduced.
+--
+-- Run this in Query window 1, then session-2.sql in Query window 2 a second later.
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
+SET NOCOUNT ON;
+GO
 
-IF NOT EXISTS (SELECT 1 FROM dbo.spaces WHERE space_code = N'X-100')
-    INSERT INTO dbo.spaces (space_code, space_type) VALUES (N'X-100', N'classroom');
+-- Clean the test space for a deterministic run.
+DELETE a FROM dbo.approvals a
+  JOIN dbo.bookings b ON b.booking_id = a.booking_id
+ WHERE b.space_code = N'X-100';
+DELETE s FROM dbo.sessions s
+  JOIN dbo.bookings b ON b.booking_id = s.booking_id
+ WHERE b.space_code = N'X-100';
+DELETE FROM dbo.bookings WHERE space_code = N'X-100';
+DELETE FROM dbo.maintenance_records WHERE space_code = N'X-100';
 GO
 
 DECLARE @mtn_id INT;
@@ -23,13 +37,13 @@ VALUES
      '2026-09-01 08:00:00', N'reported', N'advisory');
 SET @mtn_id = SCOPE_IDENTITY();
 PRINT N'Prepared advisory maintenance #' + CAST(@mtn_id AS VARCHAR(20));
-SELECT @mtn_id AS advisory_maintenance_id INTO #t FROM (SELECT 1) x;
 GO
 
-WAITFOR DELAY '00:00:03';
+WAITFOR DELAY '00:00:01';
+GO
 
-PRINT 'Session 1: submit pending booking 09:00-11:00 for space X-100.';
-EXEC dbo.usp_submit_booking_pending
+PRINT 'Session 1: instant booking 09:00-11:00 for space X-100.';
+EXEC dbo.usp_submit_instant_booking
     @requester_id          = N'U-303',
     @space_code            = N'X-100',
     @requested_start_time  = '2026-09-01 09:00:00',
@@ -38,8 +52,11 @@ EXEC dbo.usp_submit_booking_pending
     @expected_participants = 40;
 GO
 
+-- Final state: the approved booking exists even though the maintenance was
+-- escalated to out-of-service while this booking was being created. The booking
+-- was NOT returned by Session 2's BR-48 identification.
 SELECT booking_id, requester_id, space_code, requested_start_time,
-       requested_end_time, status
+       requested_end_time, status, advisory_acknowledged
   FROM dbo.bookings
  WHERE space_code = N'X-100'
    AND requested_start_time >= '2026-09-01 00:00'

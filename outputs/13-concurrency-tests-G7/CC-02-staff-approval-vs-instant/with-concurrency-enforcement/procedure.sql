@@ -1,10 +1,19 @@
 -- ============================================================================
--- CC-02 -- STAFF APPROVAL RACING WITH AN INSTANT BOOKING (SAME SPACE/PERIOD)
+-- CC-02 -- STAFF APPROVAL RACING WITH AN INSTANT BOOKING (SAME SPACE / PERIOD)
 -- Variant: WITH concurrency enforcement
 -- Procedures: usp_submit_instant_booking + usp_approve_pending_booking in the
--- enforcement form (copied verbatim from outputs/12-concurrency-implementation
--- -G7.sql). Both booking paths acquire the SAME space-row UPDLOCK + HOLDLOCK, so
--- staff approval and instant booking serialize (BR-50) and cannot both commit.
+-- enforcement form (copied from outputs/12-concurrency-implementation-G7.sql)
+-- with ONE test hook in each: a WAITFOR DELAY between the availability check
+-- and the data modification, so the two sessions reliably overlap in the
+-- check -> act window.
+--
+-- Both booking paths acquire the SAME space-row UPDLOCK + HOLDLOCK, so the
+-- instant submission and the staff approval serialize on the space (BR-50).
+-- In this scenario Session 2 (instant) commits first; Session 1 (approval)
+-- blocks on the space lock, then re-validates, sees the committed instant
+-- booking and is REJECTED. Only ONE approved booking results.
+--
+-- All RAISERROR messages are single string literals (no expression arguments).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
@@ -15,7 +24,7 @@ IF OBJECT_ID(N'dbo.usp_approve_pending_booking', N'P') IS NOT NULL
 GO
 
 -- ----------------------------------------------------------------------------
--- usp_submit_instant_booking  (OP-01, CC-02 side)
+-- usp_submit_instant_booking  (OP-01, CC-02 instant side)
 -- ----------------------------------------------------------------------------
 CREATE PROCEDURE dbo.usp_submit_instant_booking
     @requester_id          VARCHAR(50),
@@ -75,13 +84,14 @@ BEGIN
            AND @requested_end_time > m.start_time
            AND (m.completion_time IS NULL OR @requested_start_time < m.completion_time);
 
-        -- BR-14/BR-50 availability check.
+        -- BR-14 / BR-50 availability check. Counts ONLY approved bookings (BR-14);
+        -- a pending request does not reserve the space and must not block.
         IF EXISTS
         (
             SELECT 1
               FROM dbo.bookings b
              WHERE b.space_code = @space_code
-               AND b.status IN (N'approved', N'pending')
+               AND b.status = N'approved'
                AND b.requested_end_time > @requested_start_time
                AND b.requested_start_time < @requested_end_time
         )
@@ -90,6 +100,11 @@ BEGIN
             ROLLBACK;
             RETURN;
         END
+
+        -- ===== TEST HOOK =====
+        -- Hold the space-row lock after the availability check so the concurrent
+        -- staff approval cannot interleave (it blocks on the same space lock).
+        WAITFOR DELAY '00:00:05';
 
         DECLARE @new_booking_id INT;
         INSERT INTO dbo.bookings
@@ -122,7 +137,7 @@ END;
 GO
 
 -- ----------------------------------------------------------------------------
--- usp_approve_pending_booking  (OP-03, CC-02 side)
+-- usp_approve_pending_booking  (OP-03, CC-02 approval side)
 -- ----------------------------------------------------------------------------
 CREATE PROCEDURE dbo.usp_approve_pending_booking
     @booking_id   INT,
@@ -137,13 +152,12 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Resolve the booking's space with a plain navigation read (no lock held
+        -- beyond this statement), so the space lock is acquired before the booking
+        -- row is locked again (consistent lock ordering shared by every path).
         DECLARE @space_code VARCHAR(20);
-        DECLARE @requested_start DATETIME2, @requested_end DATETIME2;
-
-        SELECT @space_code     = b.space_code,
-               @requested_start = b.requested_start_time,
-               @requested_end   = b.requested_end_time
-          FROM dbo.bookings b WITH (UPDLOCK)
+        SELECT @space_code = b.space_code
+          FROM dbo.bookings b
          WHERE b.booking_id = @booking_id;
 
         IF @space_code IS NULL
@@ -153,12 +167,37 @@ BEGIN
             RETURN;
         END
 
+        -- Serialize on the space: an approval is an approved-booking decision.
         DECLARE @space_holder VARCHAR(20);
         SELECT @space_holder = s.space_code
           FROM dbo.spaces s WITH (UPDLOCK, HOLDLOCK)
          WHERE s.space_code = @space_code;
 
-        -- BR-44 re-validation.
+        -- Re-read the booking under UPDLOCK (held to commit) so a second
+        -- concurrent approval of the same booking cannot slip through.
+        DECLARE @requested_start DATETIME2, @requested_end DATETIME2;
+        DECLARE @booking_status VARCHAR(20);
+        SELECT @requested_start = b.requested_start_time,
+               @requested_end   = b.requested_end_time,
+               @booking_status  = b.status
+          FROM dbo.bookings b WITH (UPDLOCK)
+         WHERE b.booking_id = @booking_id;
+
+        IF @booking_status IS NULL
+        BEGIN
+            RAISERROR(N'Booking %d not found.', 16, 1, @booking_id);
+            ROLLBACK;
+            RETURN;
+        END
+
+        IF @booking_status <> N'pending'
+        BEGIN
+            RAISERROR(N'BR-28: only pending bookings can be approved.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- BR-44 re-validation at approval time.
         IF EXISTS
         (
             SELECT 1
@@ -170,19 +209,22 @@ BEGIN
                AND (m.completion_time IS NULL OR @requested_start < m.completion_time)
         )
         BEGIN
-            RAISERROR(N'BR-44: cannot approve: space under out-of-service maintenance.', 16, 1);
+            RAISERROR(N'BR-44: cannot approve: space is under out-of-service maintenance for this period.', 16, 1);
             ROLLBACK;
             RETURN;
         END
 
-        -- BR-14/BR-50 re-validation.
+        -- BR-14 / BR-50 re-validation (the contested statement). Counts only
+        -- APPROVED bookings: approving this request is allowed as long as no
+        -- approved booking overlaps; overlapping pending requests are resolved
+        -- at their own approval time.
         IF EXISTS
         (
             SELECT 1
               FROM dbo.bookings b2
              WHERE b2.space_code = @space_code
                AND b2.booking_id <> @booking_id
-               AND b2.status IN (N'approved', N'pending')
+               AND b2.status = N'approved'
                AND b2.requested_end_time > @requested_start
                AND b2.requested_start_time < @requested_end
         )
@@ -191,6 +233,11 @@ BEGIN
             ROLLBACK;
             RETURN;
         END
+
+        -- ===== TEST HOOK =====
+        -- Hold the space-row lock after the re-validation so the concurrent
+        -- instant booking cannot slip between the check and the approval.
+        WAITFOR DELAY '00:00:05';
 
         UPDATE dbo.bookings
            SET status = N'approved'

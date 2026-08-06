@@ -1,19 +1,21 @@
 -- ============================================================================
 -- CC-01 -- SESSION 2 (WITH enforcement)
 -- Second user submits an instant booking for the SAME space/time as Session 1.
--- Because Session 1 holds the UPDLOCK + HOLDLOCK on the space row, this session
--- BLOCKS at the availability check until Session 1 commits, then reads the
--- FRESH committed state (now containing Session 1's booking) and is rejected
--- with BR-14/BR-50. The double booking is PREVENTED.
+-- While Session 1 still holds the space-row UPDLOCK + HOLDLOCK (it is inside the
+-- WAITFOR DELAY inside its procedure), this session's procedure BLOCKS at the
+-- space-row lock the moment it begins. Once Session 1 commits, Session 2 obtains
+-- the lock, re-reads the availability and finds Session 1's approved booking
+-- overlapping the period -> it raises BR-14/BR-50 and rolls back.
+-- The double booking is PREVENTED: only ONE approved booking exists.
 --
--- Launch this while Session 1's EXEC is still waiting/executing.
+-- Launch this in Query window 2 a few seconds after starting session-1.sql.
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
+SET NOCOUNT ON;
+GO
 
-WAITFOR DELAY '00:00:03';
-
-PRINT 'Session 2: submitting instant booking 09:00-11:00 for space X-100.';
+PRINT 'Session 2: instant booking 09:00-11:00 for X-100 (U-102).';
 EXEC dbo.usp_submit_instant_booking
     @requester_id          = N'U-102',
     @space_code            = N'X-100',
@@ -23,8 +25,8 @@ EXEC dbo.usp_submit_instant_booking
     @expected_participants = 15;
 GO
 
--- If enforcement is working this should never print an approved booking for
--- an overlapping second period. The SELECT shows the (single) final booking.
+-- With enforcement active, this second booking is rejected; only Session 1's
+-- booking exists. (An error message from the BR-14/BR-50 check is expected.)
 SELECT booking_id, requester_id, space_code, requested_start_time,
        requested_end_time, status
   FROM dbo.bookings

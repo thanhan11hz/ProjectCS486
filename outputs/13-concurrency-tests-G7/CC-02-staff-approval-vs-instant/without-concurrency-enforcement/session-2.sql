@@ -1,17 +1,22 @@
 -- ============================================================================
 -- CC-02 -- SESSION 2 (WITHOUT enforcement)  [instant booking path]
--- Submits an instant booking for the same space/period as Session 1's pending
--- approval. With locking removed, both paths read an empty availability window
--- and both commit as approved -> two overlapping approved bookings exist for
--- the same space, violating BR-14/BR-50 across the two booking paths.
--- Launch this while Session 1 is still in its WAITFOR DELAY.
+-- Submits an instant booking for the SAME space/period as Session 1's pending
+-- approval. With the availability check unlocked, this session passes its check
+-- against the empty window, then commits its APPROVED booking. Session 1's
+-- UNLOCKED approval then passes its re-validation against a state that does not
+-- yet include this booking and commits a SECOND approved booking. Together the
+-- two sessions produce TWO overlapping approved bookings for the same space,
+-- violating BR-14 / BR-50 across the two booking paths.
+--
+-- Launch this in Query window 2 straight after starting session 1 (it must reach
+-- its EXEC before Session 1's approval).
 -- ============================================================================
 USE [CS486_Booking_System];
 GO
+SET NOCOUNT ON;
+GO
 
-WAITFOR DELAY '00:00:02';
-
-PRINT 'Session 2: instant booking 09:00-11:00 for space X-100.';
+PRINT 'Session 2: instant booking 09:00-11:00 for X-100 (U-202).';
 EXEC dbo.usp_submit_instant_booking
     @requester_id          = N'U-202',
     @space_code            = N'X-100',

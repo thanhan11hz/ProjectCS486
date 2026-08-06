@@ -61,6 +61,8 @@ From the input files, read all concurrency conflicts, along with their related o
 
 ## Step 2: Generate SQL script
 
+**Note:** SQL script are for SQL Server. **RAISERROR** does not accept an expression for the message parameter, so the meassage should not be separated into sum of multiple strings.
+
 **Important rules**:
 
 Only use these mechanism for concurrency enforcement:
@@ -80,6 +82,8 @@ Only use these mechanism for concurrency enforcement:
 Exclude the use of lock granularity and row versioning.
 
 For a concurrency conflict. **CAUTIOUS:** Some of the recommended machinsims could be redundant and abuse high-level enforcement mechanisms. If the concurrency design suggest multiple enforcement mechanism, only use **SUFFICIENT** number of them and prioritize mechanisms of **LOWER LEVEL**.
+
+Instant booking insertion should not count booking with pending state in conflict checking.
 
 For each concurrency conflict:
  

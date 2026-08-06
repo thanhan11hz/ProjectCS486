@@ -248,9 +248,7 @@ BEGIN
            )
     )
     BEGIN
-        RAISERROR(N'BR-44 violation: the requested period overlaps an active '
-                  + N'out-of-service maintenance record for this space. '
-                  + N'Booking is not permitted.', 16, 1);
+        RAISERROR(N'BR-44 violation: the requested period overlaps an active out-of-service maintenance record for this space. Booking is not permitted.', 16, 1);
         ROLLBACK TRANSACTION;
         RETURN;
     END
@@ -312,9 +310,7 @@ BEGIN
            )
     )
     BEGIN
-        RAISERROR(N'BR-46 violation: an advisory maintenance record overlaps '
-                  + N'the booking period. The requester acknowledgement '
-                  + N'(advisory_acknowledged = 1) is required.', 16, 1);
+        RAISERROR(N'BR-46 violation: an advisory maintenance record overlaps the booking period. The requester acknowledgement advisory_acknowledged = 1) is required.', 16, 1);
         ROLLBACK TRANSACTION;
         RETURN;
     END
@@ -357,9 +353,7 @@ BEGIN
            AND (i.status = N'completed' OR d.status = N'completed')
     )
     BEGIN
-        RAISERROR(N'BR-47 violation: the impact level of a completed '
-                  + N'maintenance record cannot be changed. Escalation and '
-                  + N'downgrade are only allowed while the record is open.',
+        RAISERROR(N'BR-47 violation: the impact level of a completed maintenance record cannot be changed. Escalation and downgrade are only allowed while the record is open.',
                   16, 1);
         ROLLBACK TRANSACTION;
         RETURN;
