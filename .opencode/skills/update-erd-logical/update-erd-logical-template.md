@@ -4,9 +4,9 @@
 
 Summarize all design changes introduced in this phase.
 
-| Design Element | Action                                 | Related Requirement | Description |
-| -------------- | -------------------------------------- | ------------------- | ----------- |
-|                | Added / Modified / Removed / No Change |                     |             |
+| Design Element | Action | Related Requirement | Description |
+| -------------- | ------ | ------------------- | ----------- |
+|                | Added / Modified / Removed / No Change | | |
 
 ---
 
@@ -14,9 +14,9 @@ Summarize all design changes introduced in this phase.
 
 Document design decisions that are not uniquely determined by the business requirements.
 
-| ID    | Design Decision | Rationale |
-| ----- | --------------- | --------- |
-| DD-01 |                 |           |
+| ID | Design Decision | Alternatives Considered | Rationale |
+| -- | --------------- | ----------------------- | --------- |
+| DD-01 | | | |
 
 ---
 
@@ -26,9 +26,9 @@ Document design decisions that are not uniquely determined by the business requi
 
 Document only the conceptual model changes.
 
-| Element | Action                                 | Description |
-| ------- | -------------------------------------- | ----------- |
-|         | Added / Modified / Removed / No Change |             |
+| Element | Action | Description |
+| ------- | ------ | ----------- |
+|         | Added / Modified / Removed / No Change | |
 
 ### Updated Conceptual ERD
 
@@ -42,9 +42,9 @@ Document only the conceptual model changes.
 
 Document only the logical model changes.
 
-| Element | Action                                 | Description |
-| ------- | -------------------------------------- | ----------- |
-|         | Added / Modified / Removed / No Change |             |
+| Element | Action | Description |
+| ------- | ------ | ----------- |
+|         | Added / Modified / Removed / No Change | |
 
 ### Updated Relational Schema
 
@@ -62,30 +62,78 @@ Relation_Name(
 
 ---
 
-# 5. Traceability
+# 5. Functional Dependency and Normalization Analysis
+
+## 5.1 Functional Dependencies
+
+For each relation, identify:
+
+- Candidate Key(s)
+- Primary Key
+- Non-trivial Functional Dependencies
+
+Example:
+
+### Booking
+
+**Candidate Key(s)**
+
+- booking_id
+
+**Functional Dependencies**
+
+- booking_id → requester_id, space_id, start_time, end_time, status, ...
+
+---
+
+## 5.2 Normal Form Verification
+
+For each relation, verify:
+
+- First Normal Form (1NF)
+- Second Normal Form (2NF)
+- Third Normal Form (3NF)
+
+Use the following table.
+
+| Relation | Candidate Key(s) | Highest Normal Form | 3NF Status | Justification |
+| -------- | ---------------- | ------------------- | ---------- | ------------- |
+| Booking | booking_id | 3NF | ✓ | All non-key attributes depend only on the candidate key and no transitive dependency exists. |
+
+If any relation does not satisfy 3NF, document:
+
+- Violated Functional Dependency
+- Cause of the violation
+- Decomposition performed
+- Resulting normalized relations
+
+---
+
+# 6. Traceability
 
 Map each approved requirement change to the corresponding design changes.
 
 | Requirement Change | Design Change |
 | ------------------ | ------------- |
-| RC-01              | DD-01         |
+| RC-01 | DD-01 |
 
 ---
 
-# 6. Assumptions
+# 7. Assumptions
 
 Record assumptions that influenced the design.
 
-| ID   | Assumption |
-| ---- | ---------- |
-| A-01 |            |
+| ID | Assumption |
+| -- | ---------- |
+| A-01 | |
 
 ---
 
-# 7. Summary
+# 8. Summary
 
 Briefly summarize:
 
-* Major design changes.
-* Key design decisions.
-* Remaining assumptions.
+- Major design changes.
+- Key design decisions.
+- Functional dependency and normalization results.
+- Remaining assumptions.

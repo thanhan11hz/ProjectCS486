@@ -12,6 +12,8 @@ compatibility: opencode
 * Preserve the existing database design whenever possible by applying incremental design changes instead of redesigning the model.
 * Determine the appropriate representation of new business concepts as entities, attributes, relationships, or other modeling constructs.
 * Update the conceptual and logical models while maintaining consistency with the approved business requirements.
+* Identify the functional dependencies of the updated schema.
+* Verify that every relation satisfies Third Normal Form (3NF), or document the normalization steps required to achieve 3NF.
 * Document all design decisions together with their rationale and traceability.
 * Produce the updated ERD and logical schema as the foundation for schema migration.
 
@@ -60,6 +62,9 @@ If any prerequisite is missing:
 8. Select and justify the preferred design.
 9. Validate consistency between the conceptual and logical models.
 10. Generate the updated ERD and logical design documentation.
+11. Identify functional dependencies for every updated relation.
+12. Verify the normal form of each relation.
+13. Produce a 3NF verification report.
 
 ---
 
@@ -136,6 +141,8 @@ This stage is responsible for:
 * Updating the conceptual ERD.
 * Updating the logical schema.
 * Making database design decisions.
+* Identifying functional dependencies.
+* Verifying normal forms up to Third Normal Form (3NF).
 
 Do not:
 
@@ -228,7 +235,29 @@ Verify that:
 
 ---
 
-### Step 7 — Generate Updated Design Documentation
+### Step 7 — Verify Functional Dependencies and Normal Forms
+
+For every relation in the updated logical schema:
+
+* Identify candidate keys.
+* Identify all non-trivial functional dependencies.
+* Verify First Normal Form (1NF).
+* Verify Second Normal Form (2NF).
+* Verify Third Normal Form (3NF).
+
+If a relation violates 3NF:
+
+* Explain the violation.
+* Describe the normalization steps required.
+* Present the normalized relation.
+
+If the schema already satisfies 3NF:
+
+* Provide a concise proof based on the identified functional dependencies.
+
+---
+
+### Step 8 — Generate Updated Design Documentation
 
 Produce the updated ERD and logical schema following the required template.
 
@@ -262,6 +291,9 @@ Before saving:
 * No SQL implementation details are included.
 * No migration strategy is discussed.
 * The output follows the required template.
+* Functional dependencies are identified for every relation.
+* Candidate keys are documented.
+* Every relation is verified to satisfy 3NF, or the required normalization steps are documented.
 
 ---
 
