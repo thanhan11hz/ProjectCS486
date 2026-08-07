@@ -39,9 +39,6 @@ SET @mtn_id = SCOPE_IDENTITY();
 PRINT N'Prepared advisory maintenance #' + CAST(@mtn_id AS VARCHAR(20));
 GO
 
-WAITFOR DELAY '00:00:01';
-GO
-
 PRINT 'Session 1: instant booking 09:00-11:00 for space X-100.';
 EXEC dbo.usp_submit_instant_booking
     @requester_id          = N'U-303',

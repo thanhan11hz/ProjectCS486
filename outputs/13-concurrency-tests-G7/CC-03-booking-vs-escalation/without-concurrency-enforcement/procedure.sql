@@ -102,6 +102,9 @@ BEGIN
             RETURN;
         END
 
+        
+        WAITFOR DELAY '00:00:5';
+
         DECLARE @new_booking_id INT;
         INSERT INTO dbo.bookings
             (requester_id, space_code, requested_start_time, requested_end_time,
@@ -124,7 +127,7 @@ BEGIN
 
         -- ===== TEST HOOK ===== (NO lock held; the escalation can commit and run
         -- its identification in this window, while this booking stays uncommitted).
-        WAITFOR DELAY '00:00:05';
+        
 
         COMMIT TRANSACTION;
 
@@ -192,8 +195,7 @@ BEGIN
         -- ===== TEST HOOK =====
         -- Hold the transaction open between the escalation UPDATE and the BR-48
         -- identification. Without the space lock, the concurrent booking can
-        -- commit right after this identification read -> it is MISSED.
-        WAITFOR DELAY '00:00:03';
+        -- commit right after this identification read -> it is MISSED
 
         -- BR-48 identification read (now unlocked; may miss a concurrent booking).
         SELECT b.booking_id, b.requester_id, u.email,
@@ -213,3 +215,4 @@ BEGIN
     END CATCH;
 END;
 GO
+

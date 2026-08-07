@@ -113,6 +113,8 @@ BEGIN
             RETURN;
         END
 
+        WAITFOR DELAY '00:00:05';
+
         DECLARE @new_booking_id INT;
         INSERT INTO dbo.bookings
             (requester_id, space_code, requested_start_time, requested_end_time,
@@ -139,7 +141,7 @@ BEGIN
         -- was still advisory; the space-row UPDLOCK + HOLDLOCK is still held here,
         -- so the concurrent escalation cannot commit in this window. Remove for
         -- production.
-        WAITFOR DELAY '00:00:05';
+        
 
         COMMIT TRANSACTION;
 
@@ -219,7 +221,6 @@ BEGIN
         -- identification. The space lock is still held here, so no booking can
         -- commit in between and the identification cannot miss one. Remove for
         -- production.
-        WAITFOR DELAY '00:00:03';
 
         -- BR-48: identify all approved bookings overlapping the maintenance
         -- period (guaranteed consistent under the space lock).

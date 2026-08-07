@@ -15,10 +15,6 @@ GO
 SET NOCOUNT ON;
 GO
 
--- Let Session 1 (instant booking) reach its in-procedure delay first.
-WAITFOR DELAY '00:00:02';
-GO
-
 -- Find the advisory maintenance record prepared for space X-100. Declared in the
 -- SAME batch as the EXEC (T-SQL variables do not survive a GO separator).
 DECLARE @mtn_id INT =
