@@ -10,7 +10,7 @@ Execute:
 2. Execute the skill.
 
 3. Generate or update:
-   `outputs/14-data-generator-G7/`
+   `outputs/14-data-generator-G7.sql`
 
 4. Stop.
 
