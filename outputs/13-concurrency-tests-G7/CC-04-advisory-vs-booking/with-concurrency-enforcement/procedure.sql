@@ -99,6 +99,8 @@ BEGIN
             RETURN;
         END
 
+        WAITFOR DELAY '00:00:05';
+
         INSERT INTO dbo.bookings
             (requester_id, space_code, requested_start_time, requested_end_time,
              purpose, expected_participants, status, advisory_acknowledged)
@@ -116,7 +118,7 @@ BEGIN
         -- it commits. The space-row UPDLOCK + HOLDLOCK is still held, so the
         -- concurrent advisory recording cannot commit in this window. Remove for
         -- production.
-        WAITFOR DELAY '00:00:05';
+       
 
         COMMIT TRANSACTION;
         PRINT N'Booking #' + CAST(@booking AS VARCHAR(40)) + N' recorded as pending.';
@@ -159,7 +161,6 @@ BEGIN
         -- Hold the space lock before inserting the maintenance record, so the
         -- recording cannot commit between a booking's advisory snapshot and its
         -- acknowledgement. Remove for production.
-        WAITFOR DELAY '00:00:03';
 
         INSERT INTO dbo.maintenance_records
             (reporter_id, space_code, assigned_staff_id,
@@ -169,6 +170,18 @@ BEGIN
              @problem_description, @start_time, N'reported', @impact_level);
 
         SET @maintenance_id = SCOPE_IDENTITY();
+
+        -- Advisory maintenance affects overlapping bookings.
+        IF @impact_level = 'advisory'
+        BEGIN
+            UPDATE b
+            SET b.advisory_acknowledged = 1
+            FROM dbo.bookings AS b
+            WHERE b.space_code = @space_code
+              AND b.status IN (N'pending', N'approved')
+              AND b.requested_end_time > @start_time;
+        END;
+
 
         COMMIT TRANSACTION;
         PRINT N'Maintenance #' + CAST(@maintenance_id AS VARCHAR(40))

@@ -26,9 +26,6 @@ DELETE FROM dbo.bookings WHERE space_code = N'X-100';
 DELETE FROM dbo.maintenance_records WHERE space_code = N'X-100';
 GO
 
-WAITFOR DELAY '00:00:01';
-GO
-
 PRINT 'Session 1: submit pending booking 09:00-11:00 for space X-100.';
 EXEC dbo.usp_submit_booking_pending
     @requester_id          = N'U-401',

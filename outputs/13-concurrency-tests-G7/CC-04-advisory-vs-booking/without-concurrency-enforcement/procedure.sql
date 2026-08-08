@@ -86,6 +86,8 @@ BEGIN
             RETURN;
         END
 
+        WAITFOR DELAY '00:00:05';
+
         INSERT INTO dbo.bookings
             (requester_id, space_code, requested_start_time, requested_end_time,
              purpose, expected_participants, status, advisory_acknowledged)
@@ -99,7 +101,7 @@ BEGIN
 
         -- ===== TEST HOOK ===== (NO lock held; the advisory recording can commit
         -- in this window, before this booking commits).
-        WAITFOR DELAY '00:00:05';
+        
 
         COMMIT TRANSACTION;
         PRINT N'Booking #' + CAST(@booking AS VARCHAR(40)) + N' recorded as pending.';
@@ -143,6 +145,18 @@ BEGIN
              @problem_description, @start_time, N'reported', @impact_level);
 
         SET @maintenance_id = SCOPE_IDENTITY();
+
+        -- Advisory maintenance affects overlapping bookings.
+        IF @impact_level = 'advisory'
+        BEGIN
+            UPDATE b
+            SET b.advisory_acknowledged = 1
+            FROM dbo.bookings AS b
+            WHERE b.space_code = @space_code
+              AND b.status IN (N'pending', N'approved')
+              AND b.requested_end_time > @start_time;
+        END;
+
 
         COMMIT TRANSACTION;
         PRINT N'Maintenance #' + CAST(@maintenance_id AS VARCHAR(40))

@@ -16,9 +16,6 @@ GO
 SET NOCOUNT ON;
 GO
 
-WAITFOR DELAY '00:00:02';
-GO
-
 PRINT 'Session 2: record advisory maintenance 08:00-12:00 for space X-100.';
 EXEC dbo.usp_record_maintenance
     @reporter_id         = N'U-402',
