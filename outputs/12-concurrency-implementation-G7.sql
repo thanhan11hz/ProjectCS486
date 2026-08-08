@@ -652,60 +652,6 @@ BEGIN
 END;
 GO
 
--- ----------------------------------------------------------------------------
--- usp_downgrade_maintenance_impact  (OP-06 -- CC-05)
--- ----------------------------------------------------------------------------
--- Downgrades the impact level of an OPEN record (e.g., out_of_service ->
--- advisory). Uses the same UPDLOCK-on-record protection as escalation to prevent
--- a lost update (CC-05). No space lock is needed: the downgrade only relaxes a
--- space's booking conditions and does not identify affected bookings.
--- ----------------------------------------------------------------------------
-CREATE PROCEDURE dbo.usp_downgrade_maintenance_impact
-    @maintenance_id INT,
-    @staff_id       VARCHAR(50)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        -- Update-level UPDLOCK read to prevent lost updates (CC-05 / BR-47).
-        DECLARE @current_level VARCHAR(20), @status VARCHAR(20);
-        SELECT @current_level = m.impact_level, @status = m.status
-    FROM dbo.maintenance_records m WITH (UPDLOCK)
-    WHERE m.maintenance_id = @maintenance_id;
-
-        IF @status IS NULL
-        BEGIN
-        RAISERROR(N'BR-47: maintenance record not found.', 16, 1);
-        ROLLBACK;
-        RETURN;
-    END;
-
-        IF @status = N'completed'
-        BEGIN
-        RAISERROR(N'BR-47: the impact level of a completed maintenance record cannot be changed; downgrade is only allowed while the record is open.', 16, 1);
-        ROLLBACK;
-        RETURN;
-    END;
-
-        UPDATE dbo.maintenance_records
-           SET impact_level = N'advisory'
-         WHERE maintenance_id = @maintenance_id;
-
-        COMMIT TRANSACTION;
-        PRINT N'Maintenance #' + CAST(@maintenance_id AS VARCHAR(40))
-              + N' downgraded to advisory.';
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-GO
 
 -- ============================================================================
 -- TRACEABILITY -- Conflict to mechanism to object
@@ -716,7 +662,6 @@ GO
 -- | CC-02   | BR-14,BR-49,BR-50 | UPDLOCK+HOLDLOCK space row (both paths, approved-only re-validation) | usp_submit_booking_pending + usp_approve_pending_booking |
 -- | CC-03   | BR-44, BR-48   | UPDLOCK+HOLDLOCK space row (booking + escalation); space lock acquired before maintenance/booking row locks | usp_escalate_maintenance_impact (space lock + BR-48 SELECT) + all booking paths |
 -- | CC-04   | BR-45, BR-46   | UPDLOCK+HOLDLOCK (all booking) + UPDLOCK (record maintenance) | usp_record_maintenance / booking paths |
--- | CC-05   | BR-47          | UPDLOCK on maintenance record (both directions) | usp_escalate_maintenance_impact / usp_downgrade_maintenance_impact |
 -- ============================================================================
 
 -- ============================================================================

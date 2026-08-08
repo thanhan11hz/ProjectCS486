@@ -19,7 +19,6 @@ Identify every business rule that may be violated under concurrent execution.
 | BR-44 (New) | A space with an active out-of-service maintenance record cannot be booked for any time period overlapping the maintenance period. | Booking creation must validate against the space's current maintenance state; the state may change concurrently (maintenance recorded, escalated, or downgraded). |
 | BR-45 (New) | A space with only active advisory maintenance records may be booked; the requester must be notified of all active advisories at booking time. | The set of active advisories must be captured consistently at booking time; advisories may be recorded concurrently with the booking. |
 | BR-46 (New) | The booking must record the requester's acknowledgement that they were informed of the active advisories. | The recorded acknowledgement must correspond to the advisory snapshot captured at booking time; otherwise the notification obligation is silently bypassed. |
-| BR-47 (New) | The impact level of an open maintenance record may be escalated (advisory → out-of-service) or downgraded. | Escalation/downgrade is a read-modify-write on a shared maintenance record; concurrent level changes can lose one another. |
 | BR-48 (New) | When advisory maintenance is escalated to out-of-service, all approved bookings overlapping the maintenance period must be identifiable so staff can contact the requesters. | The identification read must observe a consistent state of approved bookings; a booking committed concurrently may otherwise be missed. |
 | BR-49 (New) | For selected space types, booking requests satisfying the usage policy are approved automatically at submission time. | The instant approval decision is itself a check-then-act operation that must serialize with all other booking decisions for the same space. |
 | BR-50 (New) | BR-14 must hold regardless of whether bookings are created through instant booking or staff approval, and even when multiple users and staff operate concurrently. | Umbrella rule: every booking path (instant, staff approval) must share the same conflict protection so the invariant cannot be bypassed through a different path. |
@@ -245,52 +244,6 @@ The space row is the shared serialization point for all state that changes a spa
 
 ---
 
-## CC-05 — Concurrent escalation/downgrade of the same maintenance record
-
-**Classification:** Directly Inferred (from BR-47 — the requirements permit escalation and downgrade of open records while multiple users and staff operate concurrently; simultaneous level changes on the same record follow necessarily).
-
-### Scenario
-
-Two staff members work on the same open maintenance record: one escalates it from advisory to out-of-service while the other downgrades it, or two escalations/downgrades of the same record run at the same time.
-
-### Concurrent Operations
-
-- OP-05 (escalate) vs OP-05 (escalate)
-- OP-05 (escalate) vs OP-06 (downgrade)
-- OP-06 (downgrade) vs OP-06 (downgrade)
-
-### Shared Business Resources
-
-- The maintenance record's current impact level
-
-### Business Rule(s) Affected
-
-- BR-47 (directly); BR-44 and BR-48 through the resulting level (the effect on booking availability and affected-booking identification is protected by the CC-03 mechanism)
-
-### Business Invariant
-
-The impact level of an open maintenance record must have a single consistent current value at any point in time; the final value equals the last committed change and no committed change is lost.
-
-### Conflict Explanation
-
-Escalation/downgrade is a read-modify-write: read the current level, decide the new level, write it. If two transactions read "advisory" concurrently, one writes "out-of-service" and the other writes "advisory", the first staff member's committed decision is silently overwritten (lost update) and the record's level no longer reflects the last committed change.
-
----
-
-### Recommended SQL Server Concurrency Mechanism
-
-- Locking Hint: UPDLOCK (on the maintenance record, taken when the level is read within the escalation/downgrade transaction)
-
-No isolation level is required beyond SQL Server's default READ COMMITTED.
-
----
-
-### Justification
-
-Reading the maintenance record with UPDLOCK holds an update lock until the transaction commits, so the second level change waits, then reads the fresh committed level and applies its decision to the current state — no committed change is lost. A plain READ COMMITTED read takes no lock, so both changes proceed and the last writer wins regardless of commit order — insufficient. SERIALIZABLE is unnecessary: the conflict is confined to a single record, and an update lock on that record provides the same serialization with far less locking scope. Trade-off: a second staff member briefly waits for the first level change to commit; escalation/downgrade is low-frequency, so the impact is negligible. The escalation's interaction with bookings (BR-44/BR-48) is additionally covered by the space lock of CC-03.
-
----
-
 # 4. Concurrency Mechanism Summary
 
 | Conflict | Business Rule(s) | Recommended Mechanism | Reason |
@@ -299,9 +252,8 @@ Reading the maintenance record with UPDLOCK holds an update lock until the trans
 | CC-02 | BR-14, BR-49, BR-50 | UPDLOCK + HOLDLOCK (space availability check, both paths) | Common serialization of staff approval and instant booking on the same availability check |
 | CC-03 | BR-44, BR-48 | UPDLOCK + HOLDLOCK (space row) | Serialize booking creation vs escalation; make affected-booking identification consistent |
 | CC-04 | BR-45, BR-46 | UPDLOCK + HOLDLOCK (booking, space row); UPDLOCK (advisory recording, space row) | Serialize advisory recording with the booking's advisory snapshot and acknowledgement |
-| CC-05 | BR-47 | UPDLOCK (maintenance record) | Prevent lost update on the impact level of an open maintenance record |
 
-All five conflicts are resolved with locking hints. No isolation level is required: SQL Server's default READ COMMITTED combined with the specified UPDLOCK/HOLDLOCK hints preserves every identified invariant (Rule SQL2 — isolation levels are recommended only when they contribute beyond default behavior).
+All four conflicts are resolved with locking hints. No isolation level is required: SQL Server's default READ COMMITTED combined with the specified UPDLOCK/HOLDLOCK hints preserves every identified invariant (Rule SQL2 — isolation levels are recommended only when they contribute beyond default behavior).
 
 ---
 
@@ -337,14 +289,12 @@ All five conflicts are resolved with locking hints. No isolation level is requir
 - Overlapping approved bookings for the same space, whether both created by instant booking (CC-01), by staff approval racing with instant booking (CC-02), or through approval of overlapping pending requests.
 - Bookings created on a space whose maintenance has just escalated to out-of-service, and affected-booking identifications that miss concurrently committed bookings (CC-03).
 - Acknowledgements that silently miss advisories recorded while the booking was being created (CC-04).
-- Lost impact-level changes from concurrent escalation/downgrade of the same maintenance record (CC-05).
 
-**Business rules protected:** BR-14, BR-44, BR-45, BR-46, BR-47, BR-48, BR-49, BR-50.
+**Business rules protected:** BR-14, BR-44, BR-45, BR-46, BR-48, BR-49, BR-50.
 
 **Recommended SQL Server concurrency mechanisms:**
 
 - UPDLOCK + HOLDLOCK on the space availability check for every path that produces an approved booking (CC-01, CC-02), for booking creation vs maintenance escalation (CC-03), and for advisory snapshot + acknowledgement recording (CC-04).
-- UPDLOCK on the maintenance record for escalation/downgrade (CC-05).
 - No isolation level changes; default READ COMMITTED plus the specified locking hints preserves every invariant with the least restrictive mechanism.
 
-**Overall concurrency design strategy:** the space row is the single serialization point for everything that changes or validates a space's booking conditions (availability, out-of-service coverage, active advisories). Every booking path and every maintenance state change acquires the appropriate update lock on it, while per-record UPDLOCK protects individual maintenance record changes. Reporting remains lock-free at READ COMMITTED. This yields pairwise serialization of conflicting operations with minimal blocking and no isolation-level overhead.
+**Overall concurrency design strategy:** the space row is the single serialization point for everything that changes or validates a space's booking conditions (availability, out-of-service coverage, active advisories). Every booking path and every maintenance state change acquires the appropriate update lock on it. Reporting remains lock-free at READ COMMITTED. This yields pairwise serialization of conflicting operations with minimal blocking and no isolation-level overhead.

@@ -59,6 +59,8 @@ BEGIN
             RETURN;
         END
 
+        WAITFOR DELAY '00:00:05';
+
         -- Advisory snapshot (now an unlocked read; can miss a concurrent advisory).
         DECLARE @advisory_count INT = 0;
         SELECT @advisory_count = COUNT(*)
@@ -68,6 +70,22 @@ BEGIN
            AND m.status IN (N'reported', N'in_progress')
            AND @requested_end_time > m.start_time
            AND (m.completion_time IS NULL OR @requested_start_time < m.completion_time);
+
+        SELECT
+            m.maintenance_id,
+            m.space_code,
+            m.impact_level,
+            m.status,
+            m.start_time,
+            m.completion_time,
+            m.problem_description
+        FROM dbo.maintenance_records m
+        WHERE m.space_code = @space_code
+          AND m.impact_level = N'advisory'
+          AND m.status IN (N'reported', N'in_progress')
+          AND @requested_end_time > m.start_time
+          AND (m.completion_time IS NULL
+               OR @requested_start_time < m.completion_time);
 
         -- BR-14 pre-check (unlocked read). Counts ONLY approved bookings;
         -- pending requests do not reserve the space.
@@ -85,8 +103,6 @@ BEGIN
             ROLLBACK;
             RETURN;
         END
-
-        WAITFOR DELAY '00:00:05';
 
         INSERT INTO dbo.bookings
             (requester_id, space_code, requested_start_time, requested_end_time,
@@ -145,18 +161,6 @@ BEGIN
              @problem_description, @start_time, N'reported', @impact_level);
 
         SET @maintenance_id = SCOPE_IDENTITY();
-
-        -- Advisory maintenance affects overlapping bookings.
-        IF @impact_level = 'advisory'
-        BEGIN
-            UPDATE b
-            SET b.advisory_acknowledged = 1
-            FROM dbo.bookings AS b
-            WHERE b.space_code = @space_code
-              AND b.status IN (N'pending', N'approved')
-              AND b.requested_end_time > @start_time;
-        END;
-
 
         COMMIT TRANSACTION;
         PRINT N'Maintenance #' + CAST(@maintenance_id AS VARCHAR(40))
