@@ -19,9 +19,9 @@ compatibility: opencode
 
 Read the following files:
 
-* `outputs/05-db-implementation-G7.md`
+* `outputs/05-db-implementation-G7.sql`
 * `outputs/09-updated-erd-and-logical-design-G7.md`
-* `outputs/10-schema-migration-G7.md`
+* `outputs/10-schema-migration-G7.sql`
 * `req/business-requirement-change.md`
 
 If an existing analysis already exists, also read:
@@ -36,9 +36,9 @@ Do not read unrelated files unless explicitly requested.
 
 The following files must exist:
 
-* `outputs/05-db-implementation-G7.md`
+* `outputs/05-db-implementation-G7.sql`
 * `outputs/09-updated-erd-and-logical-design-G7.md`
-* `outputs/10-schema-migration-G7.md`
+* `outputs/10-schema-migration-G7.sql`
 * `req/business-requirement-change.md`
 
 If any prerequisite is missing:
@@ -101,7 +101,7 @@ The SQL script must implement T-SQL logic for all four Section 1.3 requirements 
 
 ## Error Handling
 
-If `outputs/05-db-implementation-G7.md` or `outputs/09-updated-erd-and-logical-design-G7.md` or `outputs/10-schema-migration-G7.md` or `req/business-requirement-change.md` do not exist:
+If `outputs/05-db-implementation-G7.sql` or `outputs/09-updated-erd-and-logical-design-G7.md` or `outputs/10-schema-migration-G7.sql` or `req/business-requirement-change.md` do not exist:
 
 * Stop execution.
 * Report the missing file.

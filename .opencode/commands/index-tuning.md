@@ -9,8 +9,9 @@ Execute:
 
 2. Execute the skill.
 
-3. Generate or update:
+3. Generate or update if needed:
    `outputs/15-index-tuning-G7.sql`
+   `outputs/15-index-tuning-report-G7.md`
 
 4. Stop.
 
