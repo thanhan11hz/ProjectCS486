@@ -16,6 +16,12 @@
 -- Artifact    : outputs/16-analytical-queries-G7.sql
 -- Prerequisite: Database CS486_Booking_System populated by
 --               outputs/14-data-generator-G7.sql.
+-- Timing       : Every query block (Q1-Q4) is wrapped in an execution timing
+--               harness: SET STATISTICS TIME/IO ON reports CPU, elapsed and
+--               I/O metrics in the Messages tab, and inline
+--               SYSDATETIME()/DATEDIFF(MILLISECOND,...) timestamps emit an
+--               execution_time_ms row per query. Baseline timings recorded here
+--               are consumed by outputs/15-index-tuning-report-G7.md.
 -- ============================================================================
 
 -- ============================================================================
@@ -80,8 +86,18 @@ GO
 -- which it starts (requested_start_time inside [@SemesterStart, @SemesterEnd)).
 -- ============================================================================
 
+-- ----------------------------------------------------------------------------
+-- Timing harness (Section 1): STATISTICS TIME/IO report CPU, elapsed and
+-- logical-I/O metrics in the Messages tab; the inline @QueryStart/@QueryEnd
+-- timestamps emit an explicit execution_time_ms value in the result set.
+-- ----------------------------------------------------------------------------
+SET STATISTICS TIME ON;
+SET STATISTICS IO ON;
+
 DECLARE @SemesterStart DATETIME2 = '2025-09-01 00:00:00'; -- Autumn 2025 semester
 DECLARE @SemesterEnd   DATETIME2 = '2026-02-01 00:00:00'; -- exclusive end
+
+DECLARE @QueryStart DATETIME2 = SYSDATETIME();
 
 SELECT
     s.space_code,
@@ -103,6 +119,14 @@ LEFT JOIN bookings b
 GROUP BY s.space_code, s.space_name, s.building, s.floor,
          s.room_number, s.space_type, s.capacity
 ORDER BY approved_booking_hours DESC, s.space_code;
+
+DECLARE @QueryEnd DATETIME2 = SYSDATETIME();
+SELECT
+    N'Q1 - Total Approved Booking Hours per Space' AS query_name,
+    DATEDIFF(MILLISECOND, @QueryStart, @QueryEnd)  AS execution_time_ms;
+
+SET STATISTICS TIME OFF;
+SET STATISTICS IO OFF;
 GO
 
 -- ============================================================================
@@ -115,8 +139,16 @@ GO
 -- deterministic by SET DATEFIRST 1 (see Section 1).
 -- ============================================================================
 
+-- ----------------------------------------------------------------------------
+-- Timing harness (Section 1)
+-- ----------------------------------------------------------------------------
+SET STATISTICS TIME ON;
+SET STATISTICS IO ON;
+
 DECLARE @SemesterStart DATETIME2 = '2025-09-01 00:00:00'; -- Autumn 2025 semester
 DECLARE @SemesterEnd   DATETIME2 = '2026-02-01 00:00:00'; -- exclusive end
+
+DECLARE @QueryStart DATETIME2 = SYSDATETIME();
 
 SELECT
     DATEPART(WEEKDAY, b.requested_start_time) AS weekday_number,
@@ -132,6 +164,14 @@ GROUP BY
     DATENAME(WEEKDAY, b.requested_start_time),
     DATEPART(HOUR,   b.requested_start_time)
 ORDER BY weekday_number, start_hour;
+
+DECLARE @QueryEnd DATETIME2 = SYSDATETIME();
+SELECT
+    N'Q2 - Booking Density Heatmap (Weekday x Hour)' AS query_name,
+    DATEDIFF(MILLISECOND, @QueryStart, @QueryEnd)     AS execution_time_ms;
+
+SET STATISTICS TIME OFF;
+SET STATISTICS IO OFF;
 GO
 
 -- ============================================================================
@@ -157,8 +197,8 @@ IF NOT EXISTS (SELECT 1 FROM sys.types WHERE name = N'RequiredFacilityListType')
     );
 GO
 
-DECLARE @TargetStart        DATETIME2 = '2026-09-15 09:00:00'; -- target period
-DECLARE @TargetEnd          DATETIME2 = '2026-09-15 11:00:00';
+DECLARE @TargetStart        DATETIME2 = '2026-01-01 09:00:00'; -- target period
+DECLARE @TargetEnd          DATETIME2 = '2026-01-01 11:00:00';
 DECLARE @RequiredCapacity   INT       = 40;
 DECLARE @RequiredFacilities AS dbo.RequiredFacilityListType;
 DECLARE @RequiredFacilityCount INT = 2;
@@ -170,8 +210,18 @@ SELECT facility_id
 FROM facilities
 WHERE facility_name IN (N'Projector', N'Air Conditioning');
 
+-- ----------------------------------------------------------------------------
+-- Timing harness (Section 1): the @RequiredFacilities TVP population above is
+-- parameter setup; only the room-finder execution itself is timed.
+-- ----------------------------------------------------------------------------
+SET STATISTICS TIME ON;
+SET STATISTICS IO ON;
+
 -- @RequiredFacilityCount MUST equal the number of distinct facilities in the
 -- list above (COUNT(DISTINCT) semantics of the relational division).
+
+DECLARE @QueryStart DATETIME2 = SYSDATETIME();
+
 SELECT
     s.space_code,
     s.space_name,
@@ -212,6 +262,14 @@ GROUP BY s.space_code, s.space_name, s.building, s.floor,
          s.room_number, s.capacity, s.space_type, s.usage_policy
 HAVING COUNT(DISTINCT sf.facility_id) = @RequiredFacilityCount
 ORDER BY s.capacity, s.space_code;
+
+DECLARE @QueryEnd DATETIME2 = SYSDATETIME();
+SELECT
+    N'Q3 - Multi-Criteria Room Finder' AS query_name,
+    DATEDIFF(MILLISECOND, @QueryStart, @QueryEnd) AS execution_time_ms;
+
+SET STATISTICS TIME OFF;
+SET STATISTICS IO OFF;
 GO
 
 -- ============================================================================
@@ -231,7 +289,15 @@ GO
 -- requesters of not-yet-realized bookings need to be contacted.
 -- ============================================================================
 
+-- ----------------------------------------------------------------------------
+-- Timing harness (Section 1)
+-- ----------------------------------------------------------------------------
+SET STATISTICS TIME ON;
+SET STATISTICS IO ON;
+
 DECLARE @MaintenanceID INT = 1; -- the advisory record being escalated
+
+DECLARE @QueryStart DATETIME2 = SYSDATETIME();
 
 SELECT
     m.maintenance_id,
@@ -256,6 +322,14 @@ WHERE m.maintenance_id = @MaintenanceID
   AND b.requested_end_time > m.start_time
   AND (m.completion_time IS NULL OR b.requested_start_time < m.completion_time)
 ORDER BY b.requested_start_time, u.user_id;
+
+DECLARE @QueryEnd DATETIME2 = SYSDATETIME();
+SELECT
+    N'Q4 - Maintenance Escalation Impact Report' AS query_name,
+    DATEDIFF(MILLISECOND, @QueryStart, @QueryEnd) AS execution_time_ms;
+
+SET STATISTICS TIME OFF;
+SET STATISTICS IO OFF;
 GO
 
 -- ============================================================================
