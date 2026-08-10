@@ -170,7 +170,7 @@ BEGIN
         -- against any in-flight booking creation for the space (CC-04).
         DECLARE @space_holder VARCHAR(20);
         SELECT @space_holder = s.space_code
-          FROM dbo.spaces s WITH (UPDLOCK, HOLDLOCK)
+          FROM dbo.spaces s WITH (HOLDLOCK)
          WHERE s.space_code = @space_code;
 
         -- ===== TEST HOOK =====
