@@ -119,6 +119,9 @@ GO
 --     of this script always measures against a schema with no non-clustered
 --     performance indexes (Skill Phase 1: "Safely drop any existing non-
 --     clustered performance indexes to ensure a clean baseline").
+--     NOTE: ix_space_facilities_facility_covering is a LEGACY index from an
+--     earlier version of this script and is no longer created (see Section 5);
+--     the drop below still cleans it up if a previous run created it.
 -- ----------------------------------------------------------------------------
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'bookings') AND name = N'ix_bookings_conflict_approved')
     DROP INDEX ix_bookings_conflict_approved ON bookings;
@@ -136,6 +139,10 @@ IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'maintenance_r
     DROP INDEX ix_maintenance_open_covering ON maintenance_records;
 GO
 
+-- LEGACY drop: ix_spaces_capacity is no longer created (Section 5) because the
+-- optimizer reads the 40-row spaces table via the clustered PK and never uses
+-- it (verified in docs/QueryPlan.sqlplan). The drop still cleans it up if a
+-- previous run of an earlier version created it.
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'spaces') AND name = N'ix_spaces_capacity')
     DROP INDEX ix_spaces_capacity ON spaces;
 GO
@@ -240,7 +247,7 @@ DECLARE @RequiredFacilityCount INT = 2;
 INSERT INTO @RequiredFacilities (facility_id)
 SELECT facility_id
 FROM facilities
-WHERE facility_name IN (N'Projector', N'Air Conditioning');
+WHERE facility_name IN ('Projector', 'Air Conditioning');
 
 DECLARE @QueryStart DATETIME2 = SYSDATETIME();
 
@@ -260,7 +267,7 @@ JOIN space_facilities sf
 JOIN @RequiredFacilities r
   ON r.facility_id = sf.facility_id
 WHERE s.capacity >= @RequiredCapacity
-  AND s.status NOT IN (N'under_maintenance', N'temporarily_closed', N'retired')
+  AND s.status NOT IN ('under_maintenance', 'temporarily_closed', 'retired')
   AND NOT EXISTS
       (
           SELECT 1
@@ -462,10 +469,10 @@ GO
 -- ============================================================================
 -- 5. INDEX STRATEGY — DESIGN AND JUSTIFICATION
 -- ----------------------------------------------------------------------------
--- Seven indexes are created. Each is justified by the workload characteristics
--- of Section 2 and the exact predicates of W1..W5. All filter expressions use
--- plain VARCHAR literals to exactly match the VARCHAR(20) filter columns
--- (Msg 10611 guardrail, header Notes).
+-- Five indexes are created (I-1 .. I-5). Each is justified by the workload
+-- characteristics of Section 2 and the exact predicates of W1..W5. All filter
+-- expressions use plain VARCHAR literals to exactly match the VARCHAR(20)
+-- filter columns (Msg 10611 guardrail, header Notes).
 --
 -- I-1 ix_bookings_conflict_approved (FILTERED, covering for W1 and BR-48)
 --   Keys: (space_code, requested_start_time, requested_end_time)
@@ -494,24 +501,25 @@ GO
 --           full scan of bookings per space.
 --
 -- I-3 ix_bookings_status_semester_covering (FILTERED, covering for W4)
---   Keys: (status, requested_start_time)
+--   Keys: (requested_start_time)
 --   Include: (none)
 --   Filter: status IN ('approved', 'checked_in', 'completed', 'no_show')
---   Serves: W4 (Q2) aggregation: per-status seek on (status, requested_start_
---           time) over the semester range, fully covered, so the two DATEPART
+--   Serves: W4 (Q2) aggregation: a single range seek on requested_start_time
+--           over the semester window, fully covered, so the two DATEPART
 --           expressions and COUNT(*) are computed from the index leaf only.
 --   Why:    W4 has no space_code predicate, so the space-leading indexes (I-1/
---           I-2) cannot help; a status-leading covering index turns the
---           baseline full-scan + sort into narrow index seeks.
+--           I-2) cannot help. The filtered predicate already restricts the
+--           rows to the effective-reservation statuses, so 'status' would be a
+--           constant-valued key column and is deliberately dropped from the
+--           key (redundant); a single-column key on requested_start_time turns
+--           the baseline full-scan + sort into a narrow semester seek.
 --   No INCLUDE: Q2 references no column other than requested_start_time (from
 --           which DATEPART(WEEKDAY), DATENAME(WEEKDAY) and DATEPART(HOUR) are
 --           derived) and COUNT(*), which needs no column. space_code is never
---           projected, filtered or grouped by Q2, and I-3 is status-leading so
---           space_code could never be seeked anyway (the per-space aggregation
---           is served by I-2). Adding it to INCLUDE would only enlarge the leaf
---           and add maintenance cost on the booking hot path with no benefit,
---           so it is deliberately omitted. This does not change the measured
---           W4 plan shape (per-status semester seeks) or the empirical results.
+--           projected, filtered or grouped by Q2 (the per-space aggregation is
+--           served by I-2), so adding it to INCLUDE would only enlarge the leaf
+--           and add maintenance cost on the booking hot path with no benefit;
+--           it is deliberately omitted.
 --
 -- I-4 ix_maintenance_open_covering (FILTERED, covering for BR-44/BR-45 and W2)
 --   Keys: (space_code, impact_level, start_time, completion_time)
@@ -524,36 +532,43 @@ GO
 --           is a key so the BR-44 (out_of_service) and BR-45 (advisory) probes
 --           each seek a single narrow range.
 --
--- I-5 ix_spaces_capacity (covering for the W2 capacity predicate)
---   Keys: (capacity, space_code)
---   Serves: W2 (Q3) filter s.capacity >= @RequiredCapacity.
---   Why:    spaces is small (~40 rows) so the gain is modest, but the index
---           provides an ordered access path for the capacity filter without
---           scanning the heap/cluster, and its maintenance cost is negligible.
+-- REMOVED — ix_spaces_capacity (capacity, space_code)
+--   The draft created this index for the W2 (Q3) capacity filter
+--   (s.capacity >= @RequiredCapacity). It is NOT part of the final design:
+--   spaces has only 40 rows, and the observed baseline AND post-tuning W2 plans
+--   (docs/QueryPlan.sqlplan) both read spaces via a Clustered Index Scan on
+--   pk_spaces (est. 12 rows after the capacity filter) — the optimizer never
+--   selects ix_spaces_capacity, so the index adds storage and write-path
+--   overhead with zero benefit. Legacy drop guards in Sections 4.0 and 8 still
+--   remove the index if an earlier version of this script created it.
 --
--- I-6 ix_space_facilities_facility_covering (covering for the W2 division)
---   Keys: (facility_id, space_code)
---   Serves: W2 (Q3) join @RequiredFacilities -> space_facilities: seeking by
---           facility_id turns the facility relational division into narrow
---           seeks instead of the PK-clustered (space_code, facility_id) path,
---           which cannot seek on facility_id alone.
---   Why:    The clustered PK is (space_code, facility_id); the W2 join needs
---           facility_id-leading access. This covering index supplies it.
+-- REMOVED — ix_space_facilities_facility_covering (facility_id, space_code)
+--   The draft created this covering index for the W2 (Q3) relational division.
+--   It is NOT part of the final design: space_facilities is tiny (~150 rows)
+--   and the W2 join is driven by the small @RequiredFacilities TVP, so the
+--   optimizer can resolve the division cheaply against the clustered PK
+--   (space_code, facility_id) or a hash join without a dedicated covering
+--   index. Dropping it keeps the design lean (no storage / write-path
+--   overhead). Legacy drop guards in Sections 4.0 and 8 still remove the index
+--   if an earlier version of this script created it.
 --
--- I-7 ix_bookings_escalation_impact (FILTERED, covering for W5/BR-48)
---   Keys: (space_code, status)
+-- I-5 ix_bookings_escalation_impact (FILTERED, covering for W5/BR-48)
+--   Keys: (space_code)
 --   Include: (requested_start_time, requested_end_time, requester_id)
 --   Filter: status = 'approved'
 --   Serves: W5 (Q4) escalation-impact report: per-space seek on the overlap
 --           predicates with requester_id included, so no key lookup into the
 --           bookings cluster is needed before the users join.
 --   Why:    Q4 runs for each escalated record; I-1 already covers space + time,
---           but lacks requester_id, forcing a key lookup. I-7 is a tight
---           covering index shaped exactly to the Q4 projection + join.
+--           but lacks requester_id, forcing a key lookup. I-5 is a tight
+--           covering index shaped exactly to the Q4 projection + join. As with
+--           I-3, the filtered predicate status = 'approved' already restricts
+--           the rows, so 'status' would be constant-valued in the key and is
+--           deliberately dropped (redundant); the key is just space_code.
 --
 -- Cost / trade-off note: the booking hot path (usp_submit_* / usp_approve_*)
 -- now maintains the clustered PK plus four non-clustered indexes per INSERT
--- (I-1, I-2, I-3, I-7). All four are FILTERED, so a row is written into each
+-- (I-1, I-2, I-3, I-5). All four are FILTERED, so a row is written into each
 -- only when it matches the respective filter; maintenance cost is therefore
 -- bounded, and it is the accepted price for eliminating ~126,000-row scans
 -- from every booking decision and the semester reporting.
@@ -592,12 +607,16 @@ END
 GO
 
 -- ----------------------------------------------------------------------------
--- 5.3 Create index I-3 — bookings status/semester covering index (for W4/Q2)
+-- 5.3 Create index I-3 — bookings semester covering index (for W4/Q2)
+-- ----------------------------------------------------------------------------
+-- Key is a single column (requested_start_time): the filtered predicate already
+-- restricts the rows to the effective-reservation statuses, so 'status' would
+-- be constant-valued in the key and is redundant (review finding, I-3).
 -- ----------------------------------------------------------------------------
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'bookings') AND name = N'ix_bookings_status_semester_covering')
 BEGIN
     CREATE NONCLUSTERED INDEX ix_bookings_status_semester_covering
-        ON bookings (status, requested_start_time)
+        ON bookings (requested_start_time)
         WHERE status IN ('approved', 'checked_in', 'completed', 'no_show');
 END
 GO
@@ -614,39 +633,23 @@ END
 GO
 
 -- ----------------------------------------------------------------------------
--- 5.5 Create index I-5 — spaces capacity index (for W2/Q3)
+-- 5.5 Create index I-5 — bookings escalation-impact covering index (for W5/Q4)
 -- ----------------------------------------------------------------------------
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'spaces') AND name = N'ix_spaces_capacity')
-BEGIN
-    CREATE NONCLUSTERED INDEX ix_spaces_capacity
-        ON spaces (capacity, space_code);
-END
-GO
-
--- ----------------------------------------------------------------------------
--- 5.6 Create index I-6 — space_facilities facility-leading covering index (for W2/Q3)
--- ----------------------------------------------------------------------------
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'space_facilities') AND name = N'ix_space_facilities_facility_covering')
-BEGIN
-    CREATE NONCLUSTERED INDEX ix_space_facilities_facility_covering
-        ON space_facilities (facility_id, space_code);
-END
-GO
-
--- ----------------------------------------------------------------------------
--- 5.7 Create index I-7 — bookings escalation-impact covering index (for W5/Q4)
+-- Key is just (space_code): the filtered predicate status = 'approved' already
+-- restricts the rows, so 'status' would be constant-valued in the key and is
+-- redundant (review finding — same reasoning as I-3).
 -- ----------------------------------------------------------------------------
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'bookings') AND name = N'ix_bookings_escalation_impact')
 BEGIN
     CREATE NONCLUSTERED INDEX ix_bookings_escalation_impact
-        ON bookings (space_code, status)
+        ON bookings (space_code)
         INCLUDE (requested_start_time, requested_end_time, requester_id)
         WHERE status = 'approved';
 END
 GO
 
 -- ----------------------------------------------------------------------------
--- 5.8 Verify index inventory after creation
+-- 5.6 Verify index inventory after creation
 -- ----------------------------------------------------------------------------
 SELECT
     OBJECT_NAME(i.object_id) AS table_name,
@@ -753,7 +756,7 @@ DECLARE @RequiredFacilityCount INT = 2;
 INSERT INTO @RequiredFacilities (facility_id)
 SELECT facility_id
 FROM facilities
-WHERE facility_name IN (N'Projector', N'Air Conditioning');
+WHERE facility_name IN ('Projector', 'Air Conditioning');
 
 DECLARE @QueryStart DATETIME2 = SYSDATETIME();
 
@@ -773,7 +776,7 @@ JOIN space_facilities sf
 JOIN @RequiredFacilities r
   ON r.facility_id = sf.facility_id
 WHERE s.capacity >= @RequiredCapacity
-  AND s.status NOT IN (N'under_maintenance', N'temporarily_closed', N'retired')
+  AND s.status NOT IN ('under_maintenance', 'temporarily_closed', 'retired')
   AND NOT EXISTS
       (
           SELECT 1
@@ -980,7 +983,7 @@ GO
 -- ============================================================================
 -- 8. OPTIONAL — CLEANUP (ROLLBACK OF THE TUNING)
 -- ----------------------------------------------------------------------------
--- Drop the seven tuned indexes. Only needed if the tuning must be re-run from
+-- Drop the five tuned indexes. Only needed if the tuning must be re-run from
 -- the baseline (e.g. to repeat the Section 4 measurements) or to restore the
 -- pre-tuning schema. Keep the indexes otherwise, since they serve the
 -- production reporting workload. Section 4.0 re-applies this cleanup
@@ -1003,10 +1006,15 @@ IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'maintenance_r
     DROP INDEX ix_maintenance_open_covering ON maintenance_records;
 GO
 
+-- LEGACY drop (no longer created by Section 5): cleans up
+-- ix_spaces_capacity if an earlier version created it. The optimizer reads the
+-- 40-row spaces table via the clustered PK and never uses this index.
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'spaces') AND name = N'ix_spaces_capacity')
     DROP INDEX ix_spaces_capacity ON spaces;
 GO
 
+-- LEGACY drop (no longer created by Section 5): cleans up
+-- ix_space_facilities_facility_covering if an earlier version created it.
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'space_facilities') AND name = N'ix_space_facilities_facility_covering')
     DROP INDEX ix_space_facilities_facility_covering ON space_facilities;
 GO
@@ -1021,9 +1029,9 @@ GO
 -- | Workload                       | Index(es) used                              | Baseline plan (expected)      | Post-tuning plan (expected)          |
 -- |--------------------------------|---------------------------------------------|-------------------------------|--------------------------------------|
 -- | W1 Booking Conflict Check      | ix_bookings_conflict_approved                | clustered scan of bookings     | narrow index seek, covering          |
--- | W2 Multi-Criteria Room Finder  | ix_bookings_space_effective_covering, ix_maintenance_open_covering, ix_spaces_capacity, ix_space_facilities_facility_covering | per-space bookings scan + maintenance scan + facility PK path | index seeks for both anti-joins, facility seek, capacity seek |
+-- | W2 Multi-Criteria Room Finder  | ix_bookings_space_effective_covering, ix_maintenance_open_covering | per-space bookings scan + maintenance scan + facility PK path | index seeks for both anti-joins, capacity filter on pk_spaces clustered scan |
 -- | W3 Total Approved Hours (Q1)   | ix_bookings_space_effective_covering         | bookings clustered scan + key lookups | per-space index seek, covering |
--- | W4 Density Heatmap (Q2)        | ix_bookings_status_semester_covering         | bookings clustered scan + sort | per-status index seeks, covering     |
+-- | W4 Density Heatmap (Q2)        | ix_bookings_status_semester_covering         | bookings clustered scan + sort | semester range index seek, covering |
 -- | W5 Maintenance Escalation (Q4) | ix_bookings_escalation_impact, ix_bookings_conflict_approved | maintenance PK seek -> bookings scan + users key lookups | maintenance PK seek -> bookings covering seek -> users PK seek |
 -- ============================================================================
 
