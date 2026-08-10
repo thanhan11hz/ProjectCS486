@@ -30,6 +30,7 @@ Read the following files:
 If an existing index tuning result already exists, also read:
 
 * `docs/15-index-tuning-results-G7.md`
+* `docs/QueryPlan.sqlplan`
 
 If an existing index SQL code and Query Tuning Analysis already exists, also read:
 
