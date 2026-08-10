@@ -67,6 +67,8 @@ BEGIN
             RETURN;
         END
 
+        WAITFOR DELAY '00:00:05';
+
         -- BR-44: reject if the requested period overlaps an active
         -- out-of-service maintenance record.
         IF EXISTS
@@ -112,8 +114,6 @@ BEGIN
             ROLLBACK;
             RETURN;
         END
-
-        WAITFOR DELAY '00:00:05';
 
         DECLARE @new_booking_id INT;
         INSERT INTO dbo.bookings

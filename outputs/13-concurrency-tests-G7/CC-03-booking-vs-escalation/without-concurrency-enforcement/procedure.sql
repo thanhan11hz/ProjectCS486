@@ -60,6 +60,8 @@ BEGIN
             RETURN;
         END
 
+        WAITFOR DELAY '00:00:5';
+
         IF EXISTS
         (
             SELECT 1
@@ -103,7 +105,7 @@ BEGIN
         END
 
         
-        WAITFOR DELAY '00:00:5';
+        
 
         DECLARE @new_booking_id INT;
         INSERT INTO dbo.bookings
