@@ -85,18 +85,20 @@ BEGIN
     -- UPDLOCK on the space row: common serialization point that orders all
     -- booking/approval operations on the same space (CC-01/02/03).
     SELECT @space_status = status
-    FROM   dbo.spaces WITH (UPDLOCK, ROWLOCK)
+    FROM dbo.spaces WITH (UPDLOCK, ROWLOCK)
     WHERE  space_code = @space_code;
 
     IF @space_status IS NULL
     BEGIN
-        SET @availability = 4;             -- space does not exist
+        SET @availability = 4;
+        -- space does not exist
         RETURN;
     END
 
     IF @space_status IN (N'under_maintenance', N'temporarily_closed', N'retired')
     BEGIN
-        SET @availability = 3;             -- BR-32
+        SET @availability = 3;
+        -- BR-32
         RETURN;
     END
 
@@ -105,14 +107,15 @@ BEGIN
     -- overlapping approved booking cannot commit while we are uncommitted.
     IF EXISTS (
         SELECT 1
-        FROM   dbo.bookings WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code = @space_code
-          AND  status     = N'approved'
-          AND  requested_start_time < @end_time
-          AND  requested_end_time   > @start_time
+    FROM dbo.bookings WITH (HOLDLOCK, ROWLOCK)
+    WHERE  space_code = @space_code
+        AND status     = N'approved'
+        AND requested_start_time < @end_time
+        AND requested_end_time   > @start_time
     )
     BEGIN
-        SET @availability = 1;             -- BR-14 / BR-50
+        SET @availability = 1;
+        -- BR-14 / BR-50
         RETURN;
     END
 
@@ -121,18 +124,20 @@ BEGIN
     -- this check of the period is committed.
     IF EXISTS (
         SELECT 1
-        FROM   dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code   = @space_code
-          AND  impact_level = N'out_of_service'
-          AND  start_time   < @end_time
-          AND  (completion_time IS NULL OR completion_time > @start_time)
+    FROM dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
+    WHERE  space_code   = @space_code
+        AND impact_level = N'out_of_service'
+        AND start_time   < @end_time
+        AND (completion_time IS NULL OR completion_time > @start_time)
     )
     BEGIN
-        SET @availability = 2;             -- BR-44
+        SET @availability = 2;
+        -- BR-44
         RETURN;
     END
 
-    SET @availability = 0;                 -- free
+    SET @availability = 0;
+-- free
 END;
 GO
 
@@ -172,39 +177,41 @@ BEGIN
 
         IF @availability <> 0
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Instant booking rejected: availability code %d.', 16, 1, @availability);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Instant booking rejected: availability code %d.', 16, 1, @availability);
+        RETURN;
+    END
 
         -- CC-04: capture the stable advisory set active at booking time under
         -- range locks, so a concurrent advisory insert is not missed and the
         -- acknowledgement is complete (BR-45, BR-46).
         SELECT @has_advisory = CASE WHEN COUNT_BIG(*) > 0 THEN 1 ELSE 0 END
-        FROM   dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code   = @space_code
-          AND  impact_level = N'advisory'
-          AND  start_time   < @requested_end_time
-          AND  (completion_time IS NULL OR completion_time > @requested_start_time);
+    FROM dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
+    WHERE  space_code   = @space_code
+        AND impact_level = N'advisory'
+        AND start_time   < @requested_end_time
+        AND (completion_time IS NULL OR completion_time > @requested_start_time);
 
         -- Capacity validation (BR-40 / BR-NI-05).
         SELECT @capacity = capacity
-        FROM   dbo.spaces
-        WHERE  space_code = @space_code;
+    FROM dbo.spaces
+    WHERE  space_code = @space_code;
 
         IF @expected_participants > @capacity
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Expected participants exceed space capacity.', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Expected participants exceed space capacity.', 16, 1);
+        RETURN;
+    END
 
         -- Record the APPROVED booking (instant approval path, BR-49).
-        INSERT INTO dbo.bookings (
-            requester_id, space_code, requested_start_time, requested_end_time,
-            purpose, expected_participants, status, advisory_acknowledged
+        INSERT INTO dbo.bookings
+        (
+        requester_id, space_code, requested_start_time, requested_end_time,
+        purpose, expected_participants, status, advisory_acknowledged
         )
-        VALUES (
+    VALUES
+        (
             @requester_id, @space_code, @requested_start_time, @requested_end_time,
             @purpose, @expected_participants, N'approved', @has_advisory
         );
@@ -260,35 +267,37 @@ BEGIN
         -- out-of-service blocks abort the submission outright (BR-32, BR-44).
         IF @availability IN (2, 3, 4)
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Booking submission rejected: availability code %d.', 16, 1, @availability);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Booking submission rejected: availability code %d.', 16, 1, @availability);
+        RETURN;
+    END
 
         -- CC-04: capture the advisory set at submission time (BR-45/46).
         SELECT @has_advisory = CASE WHEN COUNT_BIG(*) > 0 THEN 1 ELSE 0 END
-        FROM   dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
-        WHERE  space_code   = @space_code
-          AND  impact_level = N'advisory'
-          AND  start_time   < @requested_end_time
-          AND  (completion_time IS NULL OR completion_time > @requested_start_time);
+    FROM dbo.maintenance_records WITH (HOLDLOCK, ROWLOCK)
+    WHERE  space_code   = @space_code
+        AND impact_level = N'advisory'
+        AND start_time   < @requested_end_time
+        AND (completion_time IS NULL OR completion_time > @requested_start_time);
 
         SELECT @capacity = capacity
-        FROM   dbo.spaces
-        WHERE  space_code = @space_code;
+    FROM dbo.spaces
+    WHERE  space_code = @space_code;
 
         IF @expected_participants > @capacity
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Expected participants exceed space capacity.', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Expected participants exceed space capacity.', 16, 1);
+        RETURN;
+    END
 
-        INSERT INTO dbo.bookings (
-            requester_id, space_code, requested_start_time, requested_end_time,
-            purpose, expected_participants, status, advisory_acknowledged
+        INSERT INTO dbo.bookings
+        (
+        requester_id, space_code, requested_start_time, requested_end_time,
+        purpose, expected_participants, status, advisory_acknowledged
         )
-        VALUES (
+    VALUES
+        (
             @requester_id, @space_code, @requested_start_time, @requested_end_time,
             @purpose, @expected_participants, N'pending', @has_advisory
         );
@@ -337,34 +346,34 @@ BEGIN
         -- Lock the pending booking with UPDLOCK so two staff members cannot
         -- approve the same request concurrently.
         SELECT @space_code  = space_code,
-               @start_time  = requested_start_time,
-               @end_time    = requested_end_time,
-               @requester_id= requester_id,
-               @current_status = status,
-               @has_advisory = advisory_acknowledged
-        FROM   dbo.bookings WITH (UPDLOCK, ROWLOCK)
-        WHERE  booking_id = @booking_id;
+        @start_time  = requested_start_time,
+        @end_time    = requested_end_time,
+        @requester_id= requester_id,
+        @current_status = status,
+        @has_advisory = advisory_acknowledged
+    FROM dbo.bookings WITH (UPDLOCK, ROWLOCK)
+    WHERE  booking_id = @booking_id;
 
         IF @current_status IS NULL
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Booking not found.', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Booking not found.', 16, 1);
+        RETURN;
+    END
 
         IF @current_status <> N'pending'
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Only pending bookings can be approved (BR-28).', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Only pending bookings can be approved (BR-28).', 16, 1);
+        RETURN;
+    END
 
         IF @approver_id = @requester_id
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Approver must differ from requester (BR-11).', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Approver must differ from requester (BR-11).', 16, 1);
+        RETURN;
+    END
 
         -- CC-02: decisive availability check before the approval is recorded.
         EXEC dbo.usp_CheckSpaceAvailability
@@ -372,24 +381,26 @@ BEGIN
 
         IF @availability <> 0
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Approval rejected: overlapping approved booking or out-of-service maintenance (code %d).', 16, 1, @availability);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Approval rejected: overlapping approved booking or out-of-service maintenance (code %d).', 16, 1, @availability);
+        RETURN;
+    END
 
         -- Approval decision must precede the booking start (BR-37).
         IF SYSDATETIME() >= @start_time
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Approval decision must be before booking start (BR-37).', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Approval decision must be before booking start (BR-37).', 16, 1);
+        RETURN;
+    END
 
         -- Record the approval and finalize the booking status atomically.
-        INSERT INTO dbo.approvals (
-            booking_id, approver_id, decision, decision_time, decision_note
+        INSERT INTO dbo.approvals
+        (
+        booking_id, approver_id, decision, decision_time, decision_note
         )
-        VALUES (@booking_id, @approver_id, N'approved', SYSDATETIME(), @decision_note);
+    VALUES
+        (@booking_id, @approver_id, N'approved', SYSDATETIME(), @decision_note);
 
         UPDATE dbo.bookings
         SET    status = N'approved'
@@ -427,20 +438,20 @@ BEGIN
     BEGIN TRY
         -- Range-read approved bookings overlapping [@start,@end).
         SELECT b.booking_id,
-               b.requester_id,
-               u.first_name,
-               u.last_name,
-               u.email,
-               u.phone_number,
-               b.requested_start_time,
-               b.requested_end_time
-        FROM   dbo.bookings b WITH (HOLDLOCK, ROWLOCK)
-        JOIN   dbo.users    u ON u.user_id = b.requester_id
-        WHERE  b.space_code = @space_code
-          AND  b.status     = N'approved'
-          AND  b.requested_start_time < @end_time
-          AND  b.requested_end_time   > @start_time
-        ORDER  BY b.requested_start_time;
+        b.requester_id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.phone_number,
+        b.requested_start_time,
+        b.requested_end_time
+    FROM dbo.bookings b WITH (HOLDLOCK, ROWLOCK)
+        JOIN dbo.users    u ON u.user_id = b.requester_id
+    WHERE  b.space_code = @space_code
+        AND b.status     = N'approved'
+        AND b.requested_start_time < @end_time
+        AND b.requested_end_time   > @start_time
+    ORDER  BY b.requested_start_time;
 
         COMMIT TRANSACTION;
     END TRY
@@ -486,27 +497,27 @@ BEGIN
         -- CC-05: UPDLOCK read of the maintenance row. This serializes concurrent
         -- escalation/downgrade decisions on the same record (BR-47).
         SELECT @space_code = space_code,
-               @start_time = start_time,
-               @completion = completion_time,
-               @cur_level  = impact_level,
-               @cur_status = status
-        FROM   dbo.maintenance_records WITH (UPDLOCK, ROWLOCK)
-        WHERE  maintenance_id = @maintenance_id;
+        @start_time = start_time,
+        @completion = completion_time,
+        @cur_level  = impact_level,
+        @cur_status = status
+    FROM dbo.maintenance_records WITH (UPDLOCK, ROWLOCK)
+    WHERE  maintenance_id = @maintenance_id;
 
         IF @cur_status IS NULL
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record not found.', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Maintenance record not found.', 16, 1);
+        RETURN;
+    END
 
         -- Escalation/downgrade applies only while the record is OPEN (A-02).
         IF @cur_status = N'completed'
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record is already completed.', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Maintenance record is already completed.', 16, 1);
+        RETURN;
+    END
 
         -- Apply the escalation.
         UPDATE dbo.maintenance_records
@@ -519,18 +530,18 @@ BEGIN
         -- into it concurrently (BR-48). The affected list is returned to the
         -- caller so staff can contact the requesters.
         SELECT b.booking_id,
-               b.requester_id,
-               u.first_name,
-               u.last_name,
-               u.email,
-               b.requested_start_time,
-               b.requested_end_time
-        FROM   dbo.bookings b WITH (HOLDLOCK, ROWLOCK)
-        JOIN   dbo.users    u ON u.user_id = b.requester_id
-        WHERE  b.space_code = @space_code
-          AND  b.status     = N'approved'
-          AND  b.requested_start_time < CASE WHEN @completion IS NULL THEN @start_time + 1 WHEN @completion > @start_time THEN @completion ELSE @start_time + 1 END
-          AND  b.requested_end_time   > @start_time;
+        b.requester_id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        b.requested_start_time,
+        b.requested_end_time
+    FROM dbo.bookings b WITH (HOLDLOCK, ROWLOCK)
+        JOIN dbo.users    u ON u.user_id = b.requester_id
+    WHERE  b.space_code = @space_code
+        AND b.status     = N'approved'
+        AND b.requested_start_time < CASE WHEN @completion IS NULL THEN @start_time + 1 WHEN @completion > @start_time THEN @completion ELSE @start_time + 1 END
+        AND b.requested_end_time   > @start_time;
 
         COMMIT TRANSACTION;
     END TRY
@@ -569,30 +580,30 @@ BEGIN
         -- the second decision to be evaluated against the latest committed
         -- level (BR-47). Prevents the lost update / lost-workflow problem.
         SELECT @cur_level  = impact_level,
-               @cur_status = status
-        FROM   dbo.maintenance_records WITH (UPDLOCK, ROWLOCK)
-        WHERE  maintenance_id = @maintenance_id;
-
+        @cur_status = status
+    FROM dbo.maintenance_records WITH (UPDLOCK, ROWLOCK)
+    WHERE  maintenance_id = @maintenance_id;
+        
         IF @cur_status IS NULL
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record not found.', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Maintenance record not found.', 16, 1);
+        RETURN;
+    END
 
         IF @cur_status = N'completed'
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Maintenance record is already completed (A-02).', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Maintenance record is already completed (A-02).', 16, 1);
+        RETURN;
+    END
 
         IF @cur_level = N'advisory'
         BEGIN
-            ROLLBACK;
-            RAISERROR(N'Impact level is already advisory.', 16, 1);
-            RETURN;
-        END
+        ROLLBACK;
+        RAISERROR(N'Impact level is already advisory.', 16, 1);
+        RETURN;
+    END
 
         UPDATE dbo.maintenance_records
         SET    impact_level = N'advisory',
@@ -631,13 +642,15 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    INSERT INTO dbo.maintenance_records (
+    INSERT INTO dbo.maintenance_records
+        (
         reporter_id, space_code, assigned_staff_id, problem_description,
         start_time, status, impact_level
-    )
-    VALUES (
-        @reporter_id, @space_code, @assigned_staff_id, @problem_description,
-        @start_time, N'in_progress', @impact_level
+        )
+    VALUES
+        (
+            @reporter_id, @space_code, @assigned_staff_id, @problem_description,
+            @start_time, N'in_progress', @impact_level
     );
 
     SET @maintenance_id = SCOPE_IDENTITY();
