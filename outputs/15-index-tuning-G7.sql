@@ -260,7 +260,7 @@ JOIN space_facilities sf
 JOIN @RequiredFacilities r
   ON r.facility_id = sf.facility_id
 WHERE s.capacity >= @RequiredCapacity
-  AND s.status NOT IN (N'under_maintenance', N'temporarily_closed', N'retired')
+  AND s.status NOT IN (N'temporarily_closed', N'retired')
   AND NOT EXISTS
       (
           SELECT 1
